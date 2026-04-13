@@ -2,45 +2,107 @@
 <html>
 <head><title>Generate Icons</title></head>
 <body>
-<p>點擊按鈕產生圖示，然後分別右鍵儲存</p>
-<canvas id="c192" width="192" height="192"></canvas>
-<canvas id="c512" width="512" height="512"></canvas>
-<canvas id="c180" width="180" height="180"></canvas>
+<p>點擊按鈕產生圖示，然後分別點擊連結下載</p>
+<canvas id="c192" width="192" height="192" style="border:1px solid #ccc;margin:4px"></canvas>
+<canvas id="c512" width="512" height="512" style="border:1px solid #ccc;margin:4px;width:192px;height:192px"></canvas>
+<canvas id="c180" width="180" height="180" style="border:1px solid #ccc;margin:4px"></canvas>
 <br><br>
-<button onclick="generate()">生成圖示</button>
-<div id="links"></div>
+<button onclick="generate()" style="padding:10px 20px;font-size:16px;background:#34c759;color:white;border:none;border-radius:8px;cursor:pointer">生成並下載圖示</button>
+<div id="links" style="margin-top:16px;font-family:sans-serif"></div>
 <script>
 function drawIcon(canvas) {
   const ctx = canvas.getContext('2d');
   const s = canvas.width;
-  // Background
-  ctx.fillStyle = '#10b981';
+  const r = s * 0.22; // corner radius
+
+  // === Background gradient ===
+  const grad = ctx.createLinearGradient(0, 0, s, s);
+  grad.addColorStop(0, '#4cd964');
+  grad.addColorStop(1, '#1e9e3a');
+  ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.roundRect(0, 0, s, s, s * 0.22);
+  ctx.roundRect(0, 0, s, s, r);
   ctx.fill();
-  // Fork and spoon emoji style
-  ctx.fillStyle = 'white';
-  ctx.font = `bold ${s * 0.55}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('🍽', s/2, s/2);
+
+  // Scale factor (all coords designed at 512)
+  const sc = s / 512;
+
+  // === Progress ring track ===
+  const cx = 256 * sc, cy = 238 * sc, ringR = 138 * sc, sw = 30 * sc;
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+  ctx.lineWidth = sw;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // === Progress ring fill (75%) ===
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = sw;
+  ctx.lineCap = 'round';
+  const startAngle = -Math.PI / 2;
+  const endAngle = startAngle + Math.PI * 2 * 0.75;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR, startAngle, endAngle);
+  ctx.stroke();
+
+  // === Fork ===
+  const fx = 256 * sc, fy = 256 * sc;
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 18 * sc;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  // Three tines
+  const tineTop = fy - 88 * sc;
+  const tineBot = fy - 36 * sc;
+  const tineSpacing = 22 * sc;
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(fx + i * tineSpacing, tineTop);
+    ctx.lineTo(fx + i * tineSpacing, tineBot);
+    ctx.stroke();
+  }
+  // Handle stem
+  ctx.beginPath();
+  ctx.moveTo(fx - tineSpacing, tineBot);
+  ctx.bezierCurveTo(fx - tineSpacing, tineBot + 18 * sc, fx, tineBot + 24 * sc, fx, tineBot + 26 * sc);
+  ctx.lineTo(fx, fy + 72 * sc);
+  ctx.stroke();
+
+  // === Small leaf accent (top-right) ===
+  ctx.save();
+  ctx.translate(338 * sc, 132 * sc);
+  ctx.rotate(-0.7);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 22 * sc, 13 * sc, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Leaf midrib
+  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+  ctx.lineWidth = 5 * sc;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-18 * sc, 0);
+  ctx.lineTo(18 * sc, 0);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function generate() {
   const sizes = [192, 512, 180];
   const names = ['icon-192x192.png', 'icon-512x512.png', 'apple-touch-icon.png'];
+  const ids = ['c192', 'c512', 'c180'];
   const div = document.getElementById('links');
   div.innerHTML = '';
   sizes.forEach((s, i) => {
-    const id = i === 2 ? 'c180' : `c${s}`;
-    const canvas = document.getElementById(id);
+    const canvas = document.getElementById(ids[i]);
     drawIcon(canvas);
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
     a.download = names[i];
-    a.textContent = `下載 ${names[i]}`;
-    a.style.display = 'block';
-    a.style.margin = '8px 0';
+    a.textContent = `⬇ 下載 ${names[i]}`;
+    a.style.cssText = 'display:block;margin:10px 0;padding:8px 16px;background:#f0f0f5;border-radius:8px;color:#1c1c1e;text-decoration:none;font-size:15px;width:fit-content;';
     div.appendChild(a);
   });
 }

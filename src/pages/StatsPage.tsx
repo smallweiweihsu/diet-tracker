@@ -1,19 +1,23 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { todayStr, lastNDays } from '../utils/dateHelpers'
 import CalorieTrendChart from '../components/stats/CalorieTrendChart'
 import MacroPieChart from '../components/stats/MacroPieChart'
 
+type Period = 7 | 30 | 90 | 365
+const PERIOD_LABELS: Record<Period, string> = { 7: '7天', 30: '一個月', 90: '3個月', 365: '一年' }
+
 export default function StatsPage() {
   const profile = useAppStore(s => s.profile)
   const days = useAppStore(s => s.days)
+  const [period, setPeriod] = useState<Period>(30)
 
   const todayLog = days[todayStr()]
   const target = profile?.dailyCalorieTarget ?? 0
 
-  // Weekly achievement rate
+  // Achievement rate for selected period
   const weekStats = useMemo(() => {
-    const last7 = lastNDays(7)
+    const last7 = lastNDays(Math.min(period, 7))
     const withData = last7.filter(d => days[d] && Object.values(days[d].meals).some(m => m.length > 0))
     const withinTarget = withData.filter(d => days[d].isWithinTarget)
     return {
@@ -21,7 +25,7 @@ export default function StatsPage() {
       achieved: withinTarget.length,
       rate: withData.length > 0 ? Math.round((withinTarget.length / withData.length) * 100) : 0,
     }
-  }, [days])
+  }, [days, period])
 
   return (
     <div className="page stats-page">
@@ -29,7 +33,20 @@ export default function StatsPage() {
         <h1>統計</h1>
       </div>
 
-      {/* Weekly summary cards */}
+      {/* Period selector */}
+      <div className="period-selector">
+        {([7, 30, 90, 365] as Period[]).map(p => (
+          <button
+            key={p}
+            className={`period-btn ${period === p ? 'active' : ''}`}
+            onClick={() => setPeriod(p)}
+          >
+            {PERIOD_LABELS[p]}
+          </button>
+        ))}
+      </div>
+
+      {/* Summary cards */}
       <div className="stats-summary-row">
         <div className="card stat-card">
           <span className="stat-num">{weekStats.logged}</span>
@@ -49,7 +66,7 @@ export default function StatsPage() {
 
       {/* Calorie trend */}
       <div className="card">
-        <CalorieTrendChart days={days} target={target} range={30} />
+        <CalorieTrendChart days={days} target={target} range={period} />
       </div>
 
       {/* Today's macro pie */}
@@ -62,11 +79,11 @@ export default function StatsPage() {
         />
       </div>
 
-      {/* Nutrition summary this week */}
+      {/* Nutrition summary for selected period */}
       <div className="card nutrient-summary">
-        <h3>本週平均（有記錄日）</h3>
+        <h3>{PERIOD_LABELS[period]}平均（有記錄日）</h3>
         {weekStats.logged > 0 ? (() => {
-          const last7 = lastNDays(7)
+          const last7 = lastNDays(period)
           const logged = last7.filter(d => days[d] && Object.values(days[d].meals).some(m => m.length > 0))
           const avg = (field: string) => {
             const sum = logged.reduce((s, d) => s + ((days[d] as unknown as Record<string, number>)[field] ?? 0), 0)

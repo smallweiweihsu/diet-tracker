@@ -9,7 +9,7 @@ import type { DayLog } from '../../types'
 interface Props {
   days: Record<string, DayLog>
   target: number
-  range?: 30 | 60
+  range?: number
 }
 
 export default function CalorieTrendChart({ days, target, range = 30 }: Props) {

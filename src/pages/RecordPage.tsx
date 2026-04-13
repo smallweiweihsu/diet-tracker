@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { useAppStore } from '../store/appStore'
 import { todayStr, formatDate } from '../utils/dateHelpers'
 import WeekCalendar from '../components/record/WeekCalendar'
@@ -145,10 +146,10 @@ export default function RecordPage() {
               <span className="quick-add-icon">💧</span>
               <span>記錄飲水</span>
             </button>
-            <a className="quick-add-card" href="#/weight">
+            <Link className="quick-add-card" to="/weight">
               <span className="quick-add-icon">⚖️</span>
               <span>記錄體重</span>
-            </a>
+            </Link>
           </div>
         </div>
       )}

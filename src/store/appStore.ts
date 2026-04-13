@@ -95,6 +95,8 @@ interface AppState {
 
   // ── Profile actions ──
   setProfile(p: UserProfile): void
+  updateUserName(name: string): void
+  updateUserAvatar(emoji: string): void
   setFasting(f: FastingSettings): void
   completeSetup(): void
 
@@ -184,6 +186,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     const uid = get().currentUser?.id ?? ''
     userSet('profile', uid, p)
     set({ profile: p })
+  },
+
+  updateUserName(name) {
+    const current = get().currentUser
+    if (!current) return
+    const trimmed = name.trim()
+    if (!trimmed) return
+    const updated = { ...current, name: trimmed }
+    const users = get().users.map(u => u.id === current.id ? updated : u)
+    setUserList(users)
+    set({ currentUser: updated, users })
+  },
+
+  updateUserAvatar(emoji) {
+    const current = get().currentUser
+    if (!current) return
+    const updated = { ...current, avatarEmoji: emoji }
+    const users = get().users.map(u => u.id === current.id ? updated : u)
+    setUserList(users)
+    set({ currentUser: updated, users })
   },
 
   setFasting(f) {

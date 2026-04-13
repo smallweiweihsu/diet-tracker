@@ -4,6 +4,7 @@ export interface User {
   id: string
   name: string
   avatarColor: string
+  avatarEmoji?: string  // e.g. '😊', if set replaces first-letter avatar
 }
 
 // ─── User Profile & Goals ────────────────────────────────────────────────────
@@ -63,7 +64,8 @@ export interface FoodEntry {
   saturatedFat: number  // g
   fiber: number         // g
   sodium: number        // mg
-  photoUrl?: string     // base64 compressed
+  photoUrl?: string     // base64 compressed (legacy, single)
+  photoUrls?: string[]  // base64 compressed (multi, preferred)
   loggedAt: string
 }
 

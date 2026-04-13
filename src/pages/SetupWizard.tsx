@@ -4,6 +4,7 @@ import { getUserList, setUserList, setActiveUserId } from '../utils/storage'
 import GoalSetup from '../components/settings/GoalSetup'
 import FastingSetup from '../components/settings/FastingSetup'
 
+const AVATAR_EMOJIS = ['😊','💪','🌟','🔥','🌈','🎯','🍎','🏃','🧘','😎','🦋','🌸']
 const AVATAR_COLORS = [
   '#34c759', '#007aff', '#ff9500', '#ff3b30',
   '#af52de', '#ff2d55', '#5ac8fa', '#ffcc00',
@@ -14,13 +15,14 @@ export default function SetupWizard() {
   const switchUser = useAppStore(s => s.switchUser)
   const [step, setStep] = useState<'name' | 'profile' | 'done'>('name')
   const [name, setName] = useState('')
+  const [avatarEmoji, setAvatarEmoji] = useState(AVATAR_EMOJIS[0])
   const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0])
 
   function handleNameNext() {
     if (!name.trim()) return
     // Create the user in storage
     const userId = crypto.randomUUID()
-    const user = { id: userId, name: name.trim(), avatarColor }
+    const user = { id: userId, name: name.trim(), avatarColor, avatarEmoji }
     const users = [...getUserList(), user]
     setUserList(users)
     setActiveUserId(userId)
@@ -54,21 +56,36 @@ export default function SetupWizard() {
           </div>
 
           <div className="form-group">
-            <label>頭像顏色</label>
-            <div className="avatar-color-picker">
-              {AVATAR_COLORS.map(c => (
+            <label>選擇頭像</label>
+            <div className="emoji-picker">
+              {AVATAR_EMOJIS.map(e => (
                 <button
-                  key={c}
-                  className={`avatar-color-swatch ${avatarColor === c ? 'selected' : ''}`}
-                  style={{ background: c }}
-                  onClick={() => setAvatarColor(c)}
-                  aria-label={c}
-                />
+                  key={e}
+                  className={`emoji-option ${avatarEmoji === e ? 'selected' : ''}`}
+                  onClick={() => setAvatarEmoji(e)}
+                  aria-label={e}
+                >
+                  {e}
+                </button>
               ))}
+            </div>
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>背景顏色</label>
+              <div className="avatar-color-picker">
+                {AVATAR_COLORS.map(c => (
+                  <button
+                    key={c}
+                    className={`avatar-color-swatch ${avatarColor === c ? 'selected' : ''}`}
+                    style={{ background: c }}
+                    onClick={() => setAvatarColor(c)}
+                    aria-label={c}
+                  />
+                ))}
+              </div>
             </div>
             <div className="avatar-preview">
               <div className="avatar-circle" style={{ background: avatarColor }}>
-                {name ? name[0].toUpperCase() : '?'}
+                {avatarEmoji}
               </div>
             </div>
           </div>

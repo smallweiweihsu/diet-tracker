@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { FoodEntry, MealType, MealTemplate } from '../../types'
 import { useAppStore } from '../../store/appStore'
 import AddFoodModal from './AddFoodModal'
@@ -26,6 +26,28 @@ export default function MealSection({ meal, entries, date }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({})
+  const touchStartX = useRef<Record<string, number>>({})
+
+  const DELETE_THRESHOLD = 80
+
+  function handleTouchStart(id: string, e: React.TouchEvent) {
+    touchStartX.current[id] = e.touches[0].clientX
+  }
+
+  function handleTouchMove(id: string, e: React.TouchEvent) {
+    const delta = e.touches[0].clientX - (touchStartX.current[id] ?? 0)
+    if (delta > 0) return // only allow left swipe
+    setSwipeOffsets(prev => ({ ...prev, [id]: Math.max(delta, -DELETE_THRESHOLD - 20) }))
+  }
+
+  function handleTouchEnd(id: string, meal: MealType) {
+    const offset = swipeOffsets[id] ?? 0
+    if (offset <= -DELETE_THRESHOLD) {
+      removeFood(meal, id, date)
+    }
+    setSwipeOffsets(prev => ({ ...prev, [id]: 0 }))
+  }
 
   const total = entries.reduce((s, e) => s + e.calories, 0)
 
@@ -70,8 +92,16 @@ export default function MealSection({ meal, entries, date }: Props) {
       (entry.sodium ?? 0) > 0 ? { label: '鈉', value: `${entry.sodium}mg` } : null,
     ].filter(Boolean) as { label: string; value: string }[]
 
+    const photos = entry.photoUrls?.length ? entry.photoUrls : (entry.photoUrl ? [entry.photoUrl] : [])
     return (
       <div className="food-detail">
+        {photos.length > 1 && (
+          <div className="food-detail-photos">
+            {photos.map((url, i) => (
+              <img key={i} src={url} alt={`photo-${i}`} className="food-detail-photo" />
+            ))}
+          </div>
+        )}
         {items.map(item => (
           <div key={item.label} className="food-detail-row">
             <span className="food-detail-label">{item.label}</span>
@@ -96,36 +126,41 @@ export default function MealSection({ meal, entries, date }: Props) {
             <p className="empty-meal">尚未記錄</p>
           )}
 
-          {entries.map(entry => (
-            <div key={entry.id}>
-              <div
-                className={`food-entry ${expandedId === entry.id ? 'expanded' : ''}`}
-                onClick={() => handleToggleExpand(entry.id)}
-              >
-                {entry.photoUrl && (
-                  <img src={entry.photoUrl} alt={entry.name} className="food-thumb" />
-                )}
-                <div className="food-info">
-                  <span className="food-name">{entry.name}</span>
-                  <span className="food-macros">
-                    {entry.calories} kcal
-                    {entry.portion && ` · ${entry.portion}`}
-                  </span>
+          {entries.map(entry => {
+            const offset = swipeOffsets[entry.id] ?? 0
+            const showDelete = offset <= -DELETE_THRESHOLD * 0.6
+            return (
+              <div key={entry.id} className="swipe-wrapper">
+                {/* Delete background revealed on left swipe */}
+                <div className={`swipe-delete-bg ${showDelete ? 'visible' : ''}`}>
+                  <span>刪除</span>
                 </div>
-                <div className="food-entry-right">
-                  <span className="food-expand-icon">{expandedId === entry.id ? '▲' : '▼'}</span>
-                  <button
-                    className="btn-icon danger"
-                    onClick={e => { e.stopPropagation(); removeFood(meal, entry.id, date) }}
-                    aria-label="刪除"
-                  >
-                    🗑
-                  </button>
+                <div
+                  className={`food-entry ${expandedId === entry.id ? 'expanded' : ''}`}
+                  style={{ transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.25s ease' : 'none' }}
+                  onClick={() => offset === 0 && handleToggleExpand(entry.id)}
+                  onTouchStart={e => handleTouchStart(entry.id, e)}
+                  onTouchMove={e => handleTouchMove(entry.id, e)}
+                  onTouchEnd={() => handleTouchEnd(entry.id, meal)}
+                >
+                  {(entry.photoUrls?.[0] ?? entry.photoUrl) && (
+                    <img src={entry.photoUrls?.[0] ?? entry.photoUrl} alt={entry.name} className="food-thumb" />
+                  )}
+                  <div className="food-info">
+                    <span className="food-name">{entry.name}</span>
+                    <span className="food-macros">
+                      {entry.calories} kcal
+                      {entry.portion && ` · ${entry.portion}`}
+                    </span>
+                  </div>
+                  <div className="food-entry-right">
+                    <span className="food-expand-icon">{expandedId === entry.id ? '▲' : '▼'}</span>
+                  </div>
                 </div>
+                {expandedId === entry.id && renderDetail(entry)}
               </div>
-              {expandedId === entry.id && renderDetail(entry)}
-            </div>
-          ))}
+            )
+          })}
 
           <div className="meal-actions">
             <button className="btn-add-food" onClick={() => setShowModal(true)}>

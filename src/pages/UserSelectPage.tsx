@@ -33,7 +33,7 @@ export default function UserSelectPage() {
             onClick={() => handleSelect(user.id)}
           >
             <div className="avatar-circle large" style={{ background: user.avatarColor }}>
-              {user.name[0]?.toUpperCase() ?? '?'}
+              {user.avatarEmoji ?? user.name[0]?.toUpperCase() ?? '?'}
             </div>
             <span className="user-select-name">{user.name}</span>
           </button>

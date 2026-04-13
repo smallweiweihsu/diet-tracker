@@ -1,9 +1,10 @@
 /* ─── CSS Variables ────────────────────────────────────────────────────── */
 :root {
-  --color-bg: #f2f2f7;
-  --color-surface: #ffffff;
-  --color-surface2: #f2f2f7;
-  --color-border: #e5e5ea;
+  --color-bg: #f0f0f5;
+  --color-surface: rgba(255,255,255,0.88);
+  --color-surface-solid: #ffffff;
+  --color-surface2: rgba(242,242,247,0.9);
+  --color-border: rgba(0,0,0,0.08);
   --color-text: #1c1c1e;
   --color-text-muted: #8e8e93;
   --color-success: #34c759;
@@ -12,18 +13,21 @@
   --color-primary-dark: #28a745;
   --color-blue: #007aff;
   --color-orange: #ff9500;
-  --radius: 16px;
-  --radius-sm: 10px;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --blur-glass: blur(20px) saturate(180%);
+  --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #000000;
-    --color-surface: #1c1c1e;
-    --color-surface2: #2c2c2e;
-    --color-border: #38383a;
-    --color-text: #ffffff;
+    --color-bg: #111113;
+    --color-surface: rgba(28,28,30,0.88);
+    --color-surface-solid: #1c1c1e;
+    --color-surface2: rgba(44,44,46,0.9);
+    --color-border: rgba(255,255,255,0.08);
+    --color-text: #f2f2f7;
     --color-text-muted: #8e8e93;
     --color-success: #30d158;
     --color-primary: #30d158;
@@ -42,9 +46,11 @@ html, body, #root {
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
   font-size: 16px;
+  line-height: 1.45;
   background: var(--color-bg);
   color: var(--color-text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button { cursor: pointer; font-size: 16px; border: none; background: none; }
@@ -55,10 +61,11 @@ a { text-decoration: none; color: inherit; }
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100svh;
   max-width: 480px;
   margin: 0 auto;
   position: relative;
+  padding-top: var(--safe-top);
 }
 
 .app-content {
@@ -67,13 +74,16 @@ a { text-decoration: none; color: inherit; }
   padding-bottom: calc(72px + var(--safe-bottom));
 }
 
-/* ─── Card ──────────────────────────────────────────────────────────────── */
+/* ─── Card (iOS Liquid Glass) ───────────────────────────────────────────── */
 .card {
   background: var(--color-surface);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
   border-radius: var(--radius);
+  border: 1px solid var(--color-border);
   padding: 16px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  margin-bottom: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
 }
 
 /* ─── Pages ─────────────────────────────────────────────────────────────── */
@@ -82,13 +92,14 @@ a { text-decoration: none; color: inherit; }
 }
 
 .page h1 {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
+  letter-spacing: -0.4px;
   margin-bottom: 16px;
 }
 
 .page h2 {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -118,16 +129,20 @@ a { text-decoration: none; color: inherit; }
   width: 100%;
   max-width: 480px;
   display: flex;
-  background: rgba(255,255,255,0.85);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid var(--color-border);
+  background: rgba(250,250,255,0.82);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  backdrop-filter: blur(24px) saturate(200%);
+  border-top: 1px solid rgba(255,255,255,0.5);
   padding-bottom: var(--safe-bottom);
   z-index: 100;
+  box-shadow: 0 -1px 12px rgba(0,0,0,0.06);
 }
 
 @media (prefers-color-scheme: dark) {
-  .bottom-nav { background: rgba(28,28,30,0.9); }
+  .bottom-nav {
+    background: rgba(18,18,20,0.88);
+    border-top-color: rgba(255,255,255,0.08);
+  }
 }
 
 .nav-item {
@@ -882,6 +897,34 @@ select {
   padding: 6px 0;
 }
 
+/* ─── Swipe to Delete ───────────────────────────────────────────────────── */
+.swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-delete-bg {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 80px;
+  background: var(--color-danger);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.swipe-delete-bg.visible {
+  opacity: 1;
+}
+
 .food-entry {
   display: flex;
   align-items: center;
@@ -1184,7 +1227,124 @@ select {
   object-fit: cover;
 }
 
+/* ─── Multi-photo Grid (AddFoodModal) ───────────────────────────────────── */
+.photo-grid {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.photo-grid-item {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.photo-grid-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.55);
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.photo-grid-add {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  border: 1.5px dashed var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--color-text-muted);
+  background: var(--color-surface2);
+}
+
+/* Multi-photo row in food detail (expanded view) */
+.food-detail-photos {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+}
+
+.food-detail-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+/* ─── Period Selector ───────────────────────────────────────────────────── */
+.period-selector {
+  display: flex;
+  background: var(--color-surface2);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 2px;
+  margin-bottom: 16px;
+}
+
+.period-btn {
+  flex: 1;
+  border-radius: 10px;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: transparent;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.period-btn.active {
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.10);
+}
+
 /* ─── Stats Page ────────────────────────────────────────────────────────── */
+.stat-card {
+  text-align: center;
+  padding: 14px 8px;
+}
+
+.stat-num {
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
 .stats-summary-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1403,9 +1563,24 @@ select {
 
 .measurements-inputs {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   margin-bottom: 16px;
+  width: 100%;
+}
+
+.measurements-inputs .form-group {
+  min-width: 0;
+}
+
+.measurements-inputs .input-unit {
+  min-width: 0;
+}
+
+.measurements-inputs input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .measurement-field {}
@@ -1437,6 +1612,87 @@ select {
 }
 
 .profile-name { font-size: 20px; font-weight: 700; }
+.avatar-hint { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+
+/* ─── Emoji Picker ──────────────────────────────────────────────────────── */
+.emoji-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.emoji-option {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface2);
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.emoji-option.selected {
+  border-color: var(--color-primary);
+  transform: scale(1.1);
+}
+
+/* ─── Bottom Sheet ──────────────────────────────────────────────────────── */
+.bottom-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.bottom-sheet {
+  background: var(--color-surface);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 20px calc(20px + var(--safe-bottom));
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.bottom-sheet-title {
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 16px;
+  color: var(--color-text-muted);
+}
+
+/* Color picker (setup wizard) */
+.avatar-color-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.avatar-color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.avatar-color-swatch.selected {
+  border-color: var(--color-text);
+  transform: scale(1.15);
+}
+
+.avatar-preview {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
 
 .profile-stats-row {
   display: flex;
@@ -1475,6 +1731,8 @@ select {
 
 .settings-row-icon { font-size: 20px; }
 .settings-row-label { flex: 1; font-size: 16px; text-align: left; }
+.settings-row-label-stack { flex: 1; display: flex; flex-direction: column; gap: 2px; text-align: left; }
+.settings-row-sub { font-size: 12px; color: var(--color-text-muted); }
 .settings-row-arrow { color: var(--color-text-muted); font-size: 18px; }
 
 /* ─── Template Manager ──────────────────────────────────────────────────── */
@@ -1613,4 +1871,119 @@ select {
   padding: 60px 20px;
   font-size: 15px;
   line-height: 1.6;
+}
+
+/* ─── Setup / Wizard (missing classes) ─────────────────────────────────── */
+.setup-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.setup-logo {
+  font-size: 52px;
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.setup-card {
+  background: var(--color-surface);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+/* ─── User Select (missing classes) ────────────────────────────────────── */
+.user-select-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.user-select-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--color-surface);
+  -webkit-backdrop-filter: var(--blur-glass);
+  backdrop-filter: var(--blur-glass);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  padding: 14px 16px;
+  width: 100%;
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.user-select-item:active { opacity: 0.75; }
+
+.user-select-name {
+  font-size: 17px;
+  font-weight: 600;
+  flex: 1;
+  text-align: left;
+}
+
+/* ─── Stats: Nutrient Summary ───────────────────────────────────────────── */
+.nutrient-summary h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+
+.nutrient-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.nutrient-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface2);
+  border-radius: var(--radius-sm);
+  padding: 10px 6px;
+}
+
+.nutrient-val {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.nutrient-name {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+/* ─── Measurements: form + chart ────────────────────────────────────────── */
+.measurements-form {
+  margin-bottom: 4px;
+}
+
+.measurements-actions {
+  margin-top: 4px;
+}
+
+.measurements-chart {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
 }

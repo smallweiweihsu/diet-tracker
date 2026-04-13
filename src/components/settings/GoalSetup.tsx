@@ -23,6 +23,7 @@ interface Props {
 
 export default function GoalSetup({ onSaved }: Props) {
   const setProfile = useAppStore(s => s.setProfile)
+  const updateUserName = useAppStore(s => s.updateUserName)
   const completeSetup = useAppStore(s => s.completeSetup)
   const existing = useAppStore(s => s.profile)
   const currentUser = useAppStore(s => s.currentUser)
@@ -38,8 +39,9 @@ export default function GoalSetup({ onSaved }: Props) {
   const [weekly, setWeekly] = useState<0.25 | 0.5 | 0.75 | 1.0>(existing?.weeklyGoalKg ?? 0.5)
 
   function handleSave() {
+    const trimmedName = userName.trim() || (currentUser?.name ?? '')
     const profile = buildProfile({
-      userName: userName.trim() || (currentUser?.name ?? ''),
+      userName: trimmedName,
       sex, age, height,
       currentWeight: weight,
       targetWeight,
@@ -49,6 +51,7 @@ export default function GoalSetup({ onSaved }: Props) {
     })
     setProfile(profile)
     completeSetup()
+    updateUserName(trimmedName)
     onSaved?.()
   }
 

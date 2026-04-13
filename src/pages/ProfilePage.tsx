@@ -6,28 +6,90 @@ import GoalSetup from '../components/settings/GoalSetup'
 import FastingSetup from '../components/settings/FastingSetup'
 import MealTemplateManager from '../components/today/MealTemplateManager'
 
+const LAST_BACKUP_KEY = 'dt:lastBackup'
+
+// Session-level cache: remember the file handle within same session
+let _sessionFileHandle: FileSystemFileHandle | null = null
+
+async function smartExport(json: string, filename: string): Promise<boolean> {
+  // Tier 1: File System Access API (iOS 17+ / Chrome / Edge)
+  if ('showSaveFilePicker' in window) {
+    try {
+      // Re-use existing session handle if valid
+      let handle = _sessionFileHandle
+      if (handle) {
+        try {
+          const perm = await (handle as unknown as { queryPermission: (opts: object) => Promise<string> }).queryPermission({ mode: 'readwrite' })
+          if (perm !== 'granted') handle = null
+        } catch { handle = null }
+      }
+      if (!handle) {
+        handle = await (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker({
+          suggestedName: filename,
+          types: [{ description: 'JSON 備份', accept: { 'application/json': ['.json'] } }],
+        })
+        _sessionFileHandle = handle
+      }
+      const writable = await handle.createWritable()
+      await writable.write(json)
+      await writable.close()
+      return true
+    } catch (e: unknown) {
+      // User cancelled picker
+      if ((e as Error)?.name === 'AbortError') return false
+      // Permission error or other — fall through
+      _sessionFileHandle = null
+    }
+  }
+
+  // Tier 2: Web Share API with file (iOS 15-16 / Safari)
+  const file = new File([json], filename, { type: 'application/json' })
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: '飲食記錄備份' })
+      return true
+    } catch (e: unknown) {
+      if ((e as Error)?.name === 'AbortError') return false
+    }
+  }
+
+  // Tier 3: Direct download (all browsers)
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+  return true
+}
+
+const AVATAR_EMOJIS = ['😊','💪','🌟','🔥','🌈','🎯','🍎','🏃','🧘','😎','🦋','🌸']
+
 export default function ProfilePage() {
   const currentUser = useAppStore(s => s.currentUser)
   const profile = useAppStore(s => s.profile)
   const weights = useAppStore(s => s.weights)
   const days = useAppStore(s => s.days)
+  const updateUserAvatar = useAppStore(s => s.updateUserAvatar)
   const [section, setSection] = useState<'main' | 'profile' | 'fasting' | 'templates'>('main')
+  const [lastBackup, setLastBackup] = useState(localStorage.getItem(LAST_BACKUP_KEY) ?? '')
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const streak = computeStreak(days)
 
   const latestWeight = weights.length > 0 ? weights[weights.length - 1].weight : profile?.currentWeight ?? 0
   const bmi = profile ? calcBMI(latestWeight, profile.height) : null
 
-  function handleExport() {
+  async function handleExport() {
     if (!currentUser) return
     const json = exportUserData(currentUser.id)
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `diet-backup-${currentUser.name}-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    const today = new Date().toISOString().slice(0, 10)
+    const filename = `diet-backup-${currentUser.name}-${today}.json`
+    const ok = await smartExport(json, filename)
+    if (ok) {
+      localStorage.setItem(LAST_BACKUP_KEY, today)
+      setLastBackup(today)
+    }
   }
 
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -97,15 +159,41 @@ export default function ProfilePage() {
         <h1>我的</h1>
       </div>
 
+      {/* Emoji picker sheet */}
+      {showEmojiPicker && (
+        <div className="bottom-sheet-overlay" onClick={() => setShowEmojiPicker(false)}>
+          <div className="bottom-sheet" onClick={e => e.stopPropagation()}>
+            <p className="bottom-sheet-title">選擇頭像 Emoji</p>
+            <div className="emoji-picker">
+              {AVATAR_EMOJIS.map(e => (
+                <button
+                  key={e}
+                  className={`emoji-option ${currentUser?.avatarEmoji === e ? 'selected' : ''}`}
+                  onClick={() => { updateUserAvatar(e); setShowEmojiPicker(false) }}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* User card */}
       <div className="card profile-card">
         <div className="profile-avatar-row">
-          <div className="avatar-circle large" style={{ background: currentUser?.avatarColor ?? '#34c759' }}>
-            {currentUser?.name?.[0]?.toUpperCase() ?? '?'}
-          </div>
+          <button
+            className="avatar-circle large"
+            style={{ background: currentUser?.avatarColor ?? '#34c759' }}
+            onClick={() => setShowEmojiPicker(true)}
+            aria-label="更改頭像"
+          >
+            {currentUser?.avatarEmoji ?? currentUser?.name?.[0]?.toUpperCase() ?? '?'}
+          </button>
           <div className="profile-name-block">
             <span className="profile-name">{currentUser?.name ?? '使用者'}</span>
             {streak > 0 && <span className="streak-badge">🔥 {streak} 天連續記錄</span>}
+            <span className="avatar-hint">點頭像可更換</span>
           </div>
         </div>
 
@@ -158,7 +246,10 @@ export default function ProfilePage() {
       <div className="card settings-list">
         <button className="settings-row" onClick={handleExport}>
           <span className="settings-row-icon">📤</span>
-          <span className="settings-row-label">匯出資料（JSON）</span>
+          <div className="settings-row-label-stack">
+            <span className="settings-row-label">匯出資料備份</span>
+            {lastBackup && <span className="settings-row-sub">上次備份：{lastBackup}</span>}
+          </div>
           <span className="settings-row-arrow">›</span>
         </button>
         <button className="settings-row" onClick={() => fileRef.current?.click()}>

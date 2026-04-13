@@ -63,7 +63,9 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
   const [saturatedFat, setSaturatedFat] = useState(draft?.saturatedFat?.toString() ?? '')
   const [fiber, setFiber] = useState(draft?.fiber?.toString() ?? '')
   const [sodium, setSodium] = useState(draft?.sodium?.toString() ?? '')
-  const [photoUrl, setPhotoUrl] = useState<string | undefined>(draft?.photoUrl ?? undefined)
+  const [photoUrls, setPhotoUrls] = useState<string[]>(
+    draft?.photoUrls ?? (draft?.photoUrl ? [draft.photoUrl] : [])
+  )
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Save draft on any change
@@ -78,9 +80,9 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
       saturatedFat: Number(saturatedFat) || 0,
       fiber: Number(fiber) || 0,
       sodium: Number(sodium) || 0,
-      photoUrl,
+      photoUrls,
     })
-  }, [name, portion, calories, protein, carbs, fat, sugar, saturatedFat, fiber, sodium, photoUrl, userId])
+  }, [name, portion, calories, protein, carbs, fat, sugar, saturatedFat, fiber, sodium, photoUrls, userId])
 
   useEffect(() => {
     saveDraft()
@@ -91,14 +93,16 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
   }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      const compressed = await compressImage(file)
-      setPhotoUrl(compressed)
-    } catch {
-      setPhotoUrl(URL.createObjectURL(file))
-    }
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    const remaining = Math.max(0, 4 - photoUrls.length)
+    const toProcess = files.slice(0, remaining)
+    const compressed = await Promise.all(toProcess.map(async f => {
+      try { return await compressImage(f) }
+      catch { return URL.createObjectURL(f) }
+    }))
+    setPhotoUrls(prev => [...prev, ...compressed])
+    e.target.value = ''
   }
 
   function handleSelectRecent(food: FoodEntry) {
@@ -112,7 +116,8 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
     setSaturatedFat((food.saturatedFat ?? 0).toString())
     setFiber((food.fiber ?? 0).toString())
     setSodium((food.sodium ?? 0).toString())
-    if (food.photoUrl) setPhotoUrl(food.photoUrl)
+    const urls = food.photoUrls?.length ? food.photoUrls : (food.photoUrl ? [food.photoUrl] : [])
+    if (urls.length) setPhotoUrls(urls)
   }
 
   function handleSave() {
@@ -129,7 +134,8 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
       saturatedFat: Number(saturatedFat) || 0,
       fiber: Number(fiber) || 0,
       sodium: Number(sodium) || 0,
-      photoUrl,
+      photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
+      photoUrl: photoUrls[0],
       loggedAt: new Date().toISOString(),
     }
     addFood(meal, entry, date)
@@ -167,16 +173,34 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
           <RecentFoodsRow onSelect={handleSelectRecent} />
 
           {/* Photo upload */}
-          <div className="photo-upload" onClick={() => fileRef.current?.click()}>
-            {photoUrl
-              ? <img src={photoUrl} alt="food" className="food-photo-preview" />
-              : <span>📷 點此選取照片或拍照（選填）</span>
-            }
-          </div>
+          {photoUrls.length > 0 ? (
+            <div className="photo-grid">
+              {photoUrls.map((url, i) => (
+                <div key={i} className="photo-grid-item">
+                  <img src={url} alt={`food-${i}`} />
+                  <button
+                    className="photo-remove-btn"
+                    onClick={() => setPhotoUrls(prev => prev.filter((_, idx) => idx !== i))}
+                    aria-label="移除照片"
+                  >✕</button>
+                </div>
+              ))}
+              {photoUrls.length < 4 && (
+                <button className="photo-grid-add" onClick={() => fileRef.current?.click()}>
+                  <span>+</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="photo-upload" onClick={() => fileRef.current?.click()}>
+              <span>📷 點此選取照片或拍照（選填，最多 4 張）</span>
+            </div>
+          )}
           <input
             ref={fileRef}
             type="file"
             accept="image/*"
+            multiple
             style={{ display: 'none' }}
             onChange={handlePhoto}
           />
@@ -206,6 +230,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
                     min={0}
                     placeholder={f.placeholder}
                     inputMode={f.type === 'number' ? 'decimal' : undefined}
+                    onFocus={f.type === 'number' ? e => e.target.select() : undefined}
                     onChange={e => f.set(e.target.value)}
                   />
                   <span>{f.unit}</span>
