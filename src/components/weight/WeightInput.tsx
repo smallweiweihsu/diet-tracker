@@ -1,26 +1,38 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../../store/appStore'
-import { todayStr } from '../../utils/dateHelpers'
+import { todayStr, formatDate } from '../../utils/dateHelpers'
 
-export default function WeightInput() {
+interface Props {
+  selectedDate: string
+}
+
+export default function WeightInput({ selectedDate }: Props) {
   const addWeight = useAppStore(s => s.addWeight)
   const weights = useAppStore(s => s.weights)
-  const todayEntry = weights.find(w => w.date === todayStr())
 
-  const [value, setValue] = useState(todayEntry?.weight?.toString() ?? '')
+  const entry = weights.find(w => w.date === selectedDate)
+  const [value, setValue] = useState(entry?.weight?.toString() ?? '')
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    const e = weights.find(w => w.date === selectedDate)
+    setValue(e?.weight?.toString() ?? '')
+    setSaved(false)
+  }, [selectedDate, weights])
 
   function handleSave() {
     const num = parseFloat(value)
     if (!num || num < 20 || num > 300) return
-    addWeight({ date: todayStr(), weight: num })
+    addWeight({ date: selectedDate, weight: num })
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
+  const isToday = selectedDate === todayStr()
+
   return (
-    <div className="weight-input-card">
-      <h3>今日體重（早晨空腹）</h3>
+    <div className="card weight-input-card">
+      <h3>{isToday ? '今日體重（早晨空腹）' : `${formatDate(selectedDate)} 體重`}</h3>
       <div className="weight-entry-row">
         <div className="input-unit large">
           <input

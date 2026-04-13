@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { to: '/', label: '今日', icon: '🍽️', end: true },
+  { to: '/record', label: '記錄', icon: '📋', end: false },
+  { to: '/stats', label: '統計', icon: '📊', end: false },
   { to: '/weight', label: '體重', icon: '⚖️', end: false },
-  { to: '/history', label: '歷史', icon: '📋', end: false },
-  { to: '/settings', label: '設定', icon: '⚙️', end: false },
+  { to: '/profile', label: '我的', icon: '👤', end: false },
 ]
 
 export default function BottomNav() {

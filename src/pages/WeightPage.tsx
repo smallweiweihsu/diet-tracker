@@ -1,41 +1,71 @@
+import { useState } from 'react'
+import { useAppStore } from '../store/appStore'
+import { todayStr } from '../utils/dateHelpers'
+import { computeStreak } from '../store/appStore'
 import WeightInput from '../components/weight/WeightInput'
 import WeightChart from '../components/weight/WeightChart'
-import { useAppStore } from '../store/appStore'
+import BMICard from '../components/weight/BMICard'
+import MeasurementsSection from '../components/weight/MeasurementsSection'
 
 export default function WeightPage() {
   const profile = useAppStore(s => s.profile)
   const weights = useAppStore(s => s.weights)
+  const days = useAppStore(s => s.days)
   const removeWeight = useAppStore(s => s.removeWeight)
 
-  const recent = [...weights].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7)
+  const [selectedDate, setSelectedDate] = useState(todayStr())
+  const streak = computeStreak(days)
 
   return (
     <div className="page weight-page">
-      <h1>體重記錄</h1>
-      {profile && (
-        <div className="weight-targets">
-          <span>目前目標：<b>{profile.targetWeight} kg</b></span>
-          {weights.length > 0 && (
-            <span>最新：<b>{weights[weights.length - 1].weight} kg</b></span>
-          )}
-        </div>
+      <div className="page-header">
+        <h1>體重</h1>
+      </div>
+
+      {/* Date picker */}
+      <div className="card weight-date-picker">
+        <label>選擇日期</label>
+        <input
+          type="date"
+          className="input-text"
+          value={selectedDate}
+          max={todayStr()}
+          onChange={e => setSelectedDate(e.target.value)}
+        />
+      </div>
+
+      <WeightInput selectedDate={selectedDate} />
+
+      {profile && weights.length > 0 && (
+        <BMICard profile={profile} weights={weights} streak={streak} />
       )}
 
-      <WeightInput />
-      <WeightChart />
+      <div className="card">
+        <WeightChart />
+      </div>
 
-      {recent.length > 0 && (
-        <div className="weight-list">
+      {weights.length > 0 && (
+        <div className="card weight-history">
           <h3>最近記錄</h3>
-          {recent.map(w => (
-            <div key={w.date} className="weight-row">
-              <span>{w.date}</span>
-              <span className="weight-val">{w.weight} kg</span>
-              <button className="btn-icon danger" onClick={() => removeWeight(w.date)}>🗑</button>
-            </div>
-          ))}
+          <div className="weight-list">
+            {[...weights].reverse().slice(0, 10).map(w => (
+              <div key={w.date} className="weight-list-item">
+                <span className="weight-date">{w.date}</span>
+                <span className="weight-val">{w.weight} kg</span>
+                <button
+                  className="btn-icon danger"
+                  onClick={() => removeWeight(w.date)}
+                  aria-label="刪除"
+                >
+                  🗑
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
+
+      <MeasurementsSection />
     </div>
   )
 }

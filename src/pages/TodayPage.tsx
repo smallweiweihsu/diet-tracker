@@ -10,10 +10,11 @@ const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks']
 
 export default function TodayPage() {
   const profile = useAppStore(s => s.profile)
-  const getTodayLog = useAppStore(s => s.getTodayLog)
+  const getDayLog = useAppStore(s => s.getDayLog)
   const setExercise = useAppStore(s => s.setExercise)
 
-  const log = getTodayLog()
+  const today = todayStr()
+  const log = getDayLog(today)
   const target = profile?.dailyCalorieTarget ?? 0
 
   return (
@@ -48,7 +49,7 @@ export default function TodayPage() {
             min={0}
             placeholder="0"
             inputMode="numeric"
-            onChange={e => setExercise(Number(e.target.value) || 0)}
+            onChange={e => setExercise(Number(e.target.value) || 0, today)}
           />
           <span>kcal</span>
         </div>
@@ -60,6 +61,7 @@ export default function TodayPage() {
             key={meal}
             meal={meal}
             entries={log.meals[meal]}
+            date={today}
           />
         ))}
       </div>

@@ -1,0 +1,157 @@
+import { useState, useMemo } from 'react'
+import { useAppStore } from '../store/appStore'
+import { todayStr, formatDate } from '../utils/dateHelpers'
+import WeekCalendar from '../components/record/WeekCalendar'
+import CalorieSummaryRing from '../components/today/CalorieSummaryRing'
+import MacroProgressBars from '../components/today/MacroProgressBars'
+import FastingIndicator from '../components/today/FastingIndicator'
+import MealSection from '../components/today/MealSection'
+import WaterTracker from '../components/today/WaterTracker'
+import DailyNotes from '../components/today/DailyNotes'
+import type { MealType } from '../types'
+
+const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks']
+
+type Tab = 'food' | 'body'
+
+export default function RecordPage() {
+  const profile = useAppStore(s => s.profile)
+  const days = useAppStore(s => s.days)
+  const setExercise = useAppStore(s => s.setExercise)
+  const getDayLog = useAppStore(s => s.getDayLog)
+
+  const [selectedDate, setSelectedDate] = useState(todayStr())
+  const [tab, setTab] = useState<Tab>('food')
+
+  const log = getDayLog(selectedDate)
+  const target = profile?.dailyCalorieTarget ?? 0
+  const isToday = selectedDate === todayStr()
+
+  // Dates with food entries for dots on calendar
+  const markedDates = useMemo(() => {
+    return new Set(
+      Object.entries(days)
+        .filter(([, d]) => Object.values(d.meals).some(m => m.length > 0))
+        .map(([date]) => date)
+    )
+  }, [days])
+
+  return (
+    <div className="page record-page">
+      {/* Week Calendar */}
+      <WeekCalendar
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+        markedDates={markedDates}
+      />
+
+      {/* Date label + back to today */}
+      <div className="record-date-bar">
+        <span className="record-date-label">
+          {isToday ? '今天' : formatDate(selectedDate)}
+        </span>
+        {!isToday && (
+          <button className="btn-back-today" onClick={() => setSelectedDate(todayStr())}>
+            回到今天
+          </button>
+        )}
+      </div>
+
+      {/* Tab switcher */}
+      <div className="tab-switcher">
+        <button
+          className={`tab-btn ${tab === 'food' ? 'active' : ''}`}
+          onClick={() => setTab('food')}
+        >
+          飲食
+        </button>
+        <button
+          className={`tab-btn ${tab === 'body' ? 'active' : ''}`}
+          onClick={() => setTab('body')}
+        >
+          身體 &amp; 運動
+        </button>
+      </div>
+
+      {tab === 'food' ? (
+        <div className="tab-content">
+          {/* Calorie summary */}
+          <div className="card calorie-card">
+            <CalorieSummaryRing
+              consumed={log.totalCalories}
+              target={target}
+              exercise={log.exerciseCalories}
+            />
+            {profile && (
+              <MacroProgressBars
+                protein={log.totalProtein} proteinTarget={profile.proteinTarget}
+                carbs={log.totalCarbs} carbTarget={profile.carbTarget}
+                fat={log.totalFat} fatTarget={profile.fatTarget}
+              />
+            )}
+          </div>
+
+          <FastingIndicator />
+
+          {/* Notes */}
+          <DailyNotes date={selectedDate} notes={log.notes} />
+
+          {/* Meal sections */}
+          <div className="meals">
+            {MEAL_ORDER.map(meal => (
+              <MealSection
+                key={meal}
+                meal={meal}
+                entries={log.meals[meal]}
+                date={selectedDate}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="tab-content">
+          {/* Exercise */}
+          <div className="card exercise-card">
+            <div className="exercise-row">
+              <label>🏃 運動消耗</label>
+              <div className="input-unit">
+                <input
+                  type="number"
+                  value={log.exerciseCalories || ''}
+                  min={0}
+                  placeholder="0"
+                  inputMode="numeric"
+                  onChange={e => setExercise(Number(e.target.value) || 0, selectedDate)}
+                />
+                <span>kcal</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Water */}
+          <WaterTracker date={selectedDate} waterMl={log.waterMl} />
+
+          {/* Quick add grid */}
+          <div className="quick-add-grid">
+            <button className="quick-add-card" onClick={() => setTab('food')}>
+              <span className="quick-add-icon">🍽️</span>
+              <span>記錄飲食</span>
+            </button>
+            <button className="quick-add-card" onClick={() => setTab('body')}>
+              <span className="quick-add-icon">🏃</span>
+              <span>記錄運動</span>
+            </button>
+            <button className="quick-add-card" onClick={() => setTab('body')}>
+              <span className="quick-add-icon">💧</span>
+              <span>記錄飲水</span>
+            </button>
+            <a className="quick-add-card" href="#/weight">
+              <span className="quick-add-icon">⚖️</span>
+              <span>記錄體重</span>
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

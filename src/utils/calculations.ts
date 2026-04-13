@@ -53,6 +53,7 @@ export function calcMacros(
 }
 
 export function buildProfile(params: {
+  userName: string
   sex: 'male' | 'female'
   height: number
   currentWeight: number
@@ -75,4 +76,40 @@ export function buildProfile(params: {
     fatTarget: fat,
     updatedAt: new Date().toISOString(),
   }
+}
+
+export function calcBMI(weightKg: number, heightCm: number): number {
+  const h = heightCm / 100
+  return Math.round((weightKg / (h * h)) * 10) / 10
+}
+
+export function bmiCategory(bmi: number): string {
+  if (bmi < 18.5) return '體重過輕'
+  if (bmi < 24) return '正常範圍'
+  if (bmi < 27) return '體重過重'
+  if (bmi < 30) return '輕度肥胖'
+  return '中重度肥胖'
+}
+
+export function estimateGoalDate(
+  currentWeight: number,
+  targetWeight: number,
+  recentWeights: { date: string; weight: number }[],
+): string | null {
+  if (recentWeights.length < 2) return null
+  const sorted = [...recentWeights].sort((a, b) => a.date.localeCompare(b.date))
+  const recent = sorted.slice(-28) // up to 4 weeks
+  if (recent.length < 2) return null
+  const firstW = recent[0].weight
+  const lastW = recent[recent.length - 1].weight
+  const days = (new Date(recent[recent.length - 1].date).getTime() -
+    new Date(recent[0].date).getTime()) / 86400000
+  const ratePerDay = (lastW - firstW) / days // negative = losing
+  if (Math.abs(ratePerDay) < 0.001) return null
+  const diff = targetWeight - currentWeight
+  if ((diff < 0 && ratePerDay >= 0) || (diff > 0 && ratePerDay <= 0)) return null
+  const daysNeeded = Math.abs(diff / ratePerDay)
+  const goalDate = new Date()
+  goalDate.setDate(goalDate.getDate() + Math.round(daysNeeded))
+  return goalDate.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })
 }

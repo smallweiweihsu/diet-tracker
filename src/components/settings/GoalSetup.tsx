@@ -25,7 +25,9 @@ export default function GoalSetup({ onSaved }: Props) {
   const setProfile = useAppStore(s => s.setProfile)
   const completeSetup = useAppStore(s => s.completeSetup)
   const existing = useAppStore(s => s.profile)
+  const currentUser = useAppStore(s => s.currentUser)
 
+  const [userName, setUserName] = useState(existing?.userName ?? currentUser?.name ?? '')
   const [sex, setSex] = useState<'male' | 'female'>(existing?.sex ?? 'male')
   const [age, setAge] = useState(existing?.age ?? 25)
   const [height, setHeight] = useState(existing?.height ?? 170)
@@ -37,6 +39,7 @@ export default function GoalSetup({ onSaved }: Props) {
 
   function handleSave() {
     const profile = buildProfile({
+      userName: userName.trim() || (currentUser?.name ?? ''),
       sex, age, height,
       currentWeight: weight,
       targetWeight,
@@ -52,6 +55,18 @@ export default function GoalSetup({ onSaved }: Props) {
   return (
     <div className="goal-setup">
       <h2>個人設定</h2>
+
+      <div className="form-group">
+        <label>姓名</label>
+        <input
+          type="text"
+          value={userName}
+          placeholder="輸入你的名字"
+          maxLength={20}
+          onChange={e => setUserName(e.target.value)}
+          className="input-text"
+        />
+      </div>
 
       <div className="form-group">
         <label>性別</label>
@@ -73,6 +88,7 @@ export default function GoalSetup({ onSaved }: Props) {
           <label>年齡</label>
           <div className="input-unit">
             <input type="number" value={age} min={10} max={100}
+              inputMode="numeric"
               onChange={e => setAge(Number(e.target.value))} />
             <span>歲</span>
           </div>
@@ -81,6 +97,7 @@ export default function GoalSetup({ onSaved }: Props) {
           <label>身高</label>
           <div className="input-unit">
             <input type="number" value={height} min={100} max={250}
+              inputMode="numeric"
               onChange={e => setHeight(Number(e.target.value))} />
             <span>cm</span>
           </div>
@@ -92,6 +109,7 @@ export default function GoalSetup({ onSaved }: Props) {
           <label>目前體重</label>
           <div className="input-unit">
             <input type="number" value={weight} min={30} max={300} step={0.1}
+              inputMode="decimal"
               onChange={e => setWeight(Number(e.target.value))} />
             <span>kg</span>
           </div>
@@ -100,6 +118,7 @@ export default function GoalSetup({ onSaved }: Props) {
           <label>目標體重</label>
           <div className="input-unit">
             <input type="number" value={targetWeight} min={30} max={300} step={0.1}
+              inputMode="decimal"
               onChange={e => setTargetWeight(Number(e.target.value))} />
             <span>kg</span>
           </div>

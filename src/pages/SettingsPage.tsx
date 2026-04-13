@@ -1,13 +1,14 @@
 import GoalSetup from '../components/settings/GoalSetup'
 import FastingSetup from '../components/settings/FastingSetup'
-import { exportData, importData } from '../utils/storage'
+import { exportUserData, importUserData, getActiveUserId } from '../utils/storage'
 import { useRef } from 'react'
 
 export default function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   function handleExport() {
-    const json = exportData()
+    const userId = getActiveUserId() ?? ''
+    const json = exportUserData(userId)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -20,9 +21,10 @@ export default function SettingsPage() {
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    const userId = getActiveUserId() ?? ''
     const reader = new FileReader()
     reader.onload = ev => {
-      const ok = importData(ev.target?.result as string)
+      const ok = importUserData(userId, ev.target?.result as string)
       if (ok) {
         alert('匯入成功，即將重新整理')
         window.location.reload()
