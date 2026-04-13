@@ -1,151 +1,153 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Generate Icons</title>
+<title>DietTrack Icon Generator</title>
 <style>
-  body { font-family: -apple-system, sans-serif; padding: 24px; background: #f0f0f5; }
-  h2 { margin-bottom: 8px; }
-  .canvases { display: flex; gap: 12px; align-items: flex-end; margin: 16px 0; flex-wrap: wrap; }
-  canvas { border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
-  button { padding: 12px 28px; font-size: 16px; background: #34c759; color: white; border: none;
-    border-radius: 10px; cursor: pointer; font-weight: 600; }
-  #links a { display: inline-block; margin: 8px 8px 0 0; padding: 9px 18px; background: white;
-    border-radius: 8px; color: #1c1c1e; text-decoration: none; font-size: 14px; font-weight: 500;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  body { font-family: -apple-system, sans-serif; padding: 24px; background: #f0f0f5; color: #1c1c1e; }
+  h2 { margin-bottom: 6px; }
+  p  { color: #6e6e73; margin-bottom: 18px; font-size: 14px; }
+  .canvases { display: flex; gap: 16px; align-items: flex-end; margin: 20px 0; flex-wrap: wrap; }
+  .canvas-wrap label { display: block; font-size: 11px; color: #888; margin-bottom: 6px; font-weight: 500; }
+  canvas { border-radius: 22%; box-shadow: 0 6px 24px rgba(0,0,0,0.22); display: block; }
+  button { padding: 12px 32px; font-size: 15px; background: #0A9880; color: white;
+    border: none; border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing: -0.2px; }
+  #links { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+  #links a { padding: 9px 18px; background: white; border-radius: 10px; color: #1c1c1e;
+    text-decoration: none; font-size: 13px; font-weight: 500;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.10); }
 </style>
 </head>
 <body>
 <h2>DietTrack Icon Generator</h2>
-<p>點擊按鈕生成圖示，再下載並覆蓋 <code>public/icons/</code> 內的三個 PNG 檔案</p>
+<p>點擊生成後，下載三個 PNG 並覆蓋 <code>public/icons/</code> 內的舊檔，再 commit push。</p>
+
 <div class="canvases">
-  <div><div style="font-size:12px;color:#666;margin-bottom:4px">192×192</div>
+  <div class="canvas-wrap"><label>192 × 192</label>
     <canvas id="c192" width="192" height="192"></canvas></div>
-  <div><div style="font-size:12px;color:#666;margin-bottom:4px">512×512 (縮小預覽)</div>
-    <canvas id="c512" width="512" height="512" style="width:160px;height:160px"></canvas></div>
-  <div><div style="font-size:12px;color:#666;margin-bottom:4px">180×180 (Apple)</div>
+  <div class="canvas-wrap"><label>512 × 512（縮小顯示）</label>
+    <canvas id="c512" width="512" height="512" style="width:192px;height:192px"></canvas></div>
+  <div class="canvas-wrap"><label>180 × 180 (Apple Touch)</label>
     <canvas id="c180" width="180" height="180"></canvas></div>
 </div>
+
 <button onclick="generate()">生成並下載圖示</button>
 <div id="links"></div>
 
 <script>
 function drawIcon(canvas) {
   const ctx = canvas.getContext('2d');
-  const s = canvas.width;
-  const sc = s / 512;
+  const s   = canvas.width;
+  const sc  = s / 512;
 
-  // ── 1. Background (clipped to rounded rect) ──────────────────────────
+  // ── 1. Background (clipped) ────────────────────────────────────────────
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(0, 0, s, s, s * 0.225);
   ctx.clip();
 
-  // Deep green diagonal gradient
-  const bg = ctx.createLinearGradient(0, 0, s * 0.65, s);
-  bg.addColorStop(0,   '#43E07A');
-  bg.addColorStop(0.5, '#1BBD4C');
-  bg.addColorStop(1,   '#0A6628');
+  // Deep teal gradient
+  const bg = ctx.createLinearGradient(0, 0, s * 0.6, s);
+  bg.addColorStop(0,    '#15A392');
+  bg.addColorStop(0.55, '#0A6B60');
+  bg.addColorStop(1,    '#043030');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, s, s);
 
-  // Subtle glossy highlight at top (gives 3-D depth)
-  const gloss = ctx.createRadialGradient(s * 0.5, 0, 0, s * 0.5, s * 0.55, s * 0.75);
-  gloss.addColorStop(0,    'rgba(255,255,255,0.36)');
-  gloss.addColorStop(0.38, 'rgba(255,255,255,0.09)');
+  // Glossy top highlight
+  const gloss = ctx.createRadialGradient(s * 0.5, 0, 0, s * 0.5, s * 0.5, s * 0.72);
+  gloss.addColorStop(0,    'rgba(255,255,255,0.30)');
+  gloss.addColorStop(0.35, 'rgba(255,255,255,0.07)');
   gloss.addColorStop(1,    'rgba(0,0,0,0)');
   ctx.fillStyle = gloss;
   ctx.fillRect(0, 0, s, s);
 
-  // Subtle vignette at bottom corners
-  const vignette = ctx.createRadialGradient(s * 0.5, s * 0.5, s * 0.35, s * 0.5, s * 0.5, s * 0.72);
-  vignette.addColorStop(0,   'rgba(0,0,0,0)');
-  vignette.addColorStop(1,   'rgba(0,0,0,0.18)');
-  ctx.fillStyle = vignette;
+  // Subtle dark vignette at bottom
+  const vig = ctx.createRadialGradient(s*0.5, s*0.5, s*0.3, s*0.5, s*0.5, s*0.72);
+  vig.addColorStop(0, 'rgba(0,0,0,0)');
+  vig.addColorStop(1, 'rgba(0,0,0,0.16)');
+  ctx.fillStyle = vig;
   ctx.fillRect(0, 0, s, s);
 
   ctx.restore();
 
-  // ── 2. Thin progress arc (280° gauge, 78% filled) ────────────────────
-  const cx = 256 * sc, cy = 256 * sc;
-  const arcR = 176 * sc;
-  const arcW = 13 * sc;
-  const totalArc = Math.PI * 1.556; // 280° in radians
-  const startA = Math.PI * 0.5 + (Math.PI * 2 - totalArc) / 2; // centered bottom gap
+  // ── 2. Fork tines ──────────────────────────────────────────────────────
+  const tineXs  = [230 * sc, 256 * sc, 282 * sc];
+  const tineTop = 62  * sc;
+  const tineBot = 202 * sc;
+  const tineW   = 15  * sc;
 
-  // Track
-  ctx.strokeStyle = 'rgba(255,255,255,0.20)';
-  ctx.lineWidth = arcW;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(cx, cy, arcR, startA, startA + totalArc);
-  ctx.stroke();
+  ctx.shadowColor  = 'rgba(255,255,255,0.45)';
+  ctx.shadowBlur   = 9 * sc;
+  ctx.strokeStyle  = 'rgba(255,255,255,0.97)';
+  ctx.lineWidth    = tineW;
+  ctx.lineCap      = 'round';
 
-  // Fill 78%
-  ctx.strokeStyle = 'rgba(255,255,255,0.90)';
-  ctx.lineWidth = arcW;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(cx, cy, arcR, startA, startA + totalArc * 0.78);
-  ctx.stroke();
-
-  // End dot (glowing white circle at arc tip)
-  const tipA = startA + totalArc * 0.78;
-  const tipX = cx + Math.cos(tipA) * arcR;
-  const tipY = cy + Math.sin(tipA) * arcR;
-  ctx.shadowColor = 'rgba(255,255,255,0.8)';
-  ctx.shadowBlur = 10 * sc;
-  ctx.fillStyle = 'white';
-  ctx.beginPath();
-  ctx.arc(tipX, tipY, arcW * 0.62, 0, Math.PI * 2);
-  ctx.fill();
+  for (const tx of tineXs) {
+    ctx.beginPath();
+    ctx.moveTo(tx, tineTop);
+    ctx.lineTo(tx, tineBot);
+    ctx.stroke();
+  }
   ctx.shadowBlur = 0;
 
-  // ── 3. Leaf (main symbol) ─────────────────────────────────────────────
-  const lx = 256 * sc, ly = 248 * sc;
-  const lh = 182 * sc;   // half-height
-  const lw = 90 * sc;    // half-width
+  // ── 3. Leaf body ───────────────────────────────────────────────────────
+  const lx   = 256 * sc;
+  const ltop = 188 * sc;   // connects to tine base (slight overlap)
+  const lbot = 450 * sc;   // leaf tip / handle end
+  const lw   = 116 * sc;   // half-width at widest
 
-  // Drop shadow
-  ctx.shadowColor = 'rgba(0,50,20,0.30)';
-  ctx.shadowBlur   = 20 * sc;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 8 * sc;
+  ctx.shadowColor   = 'rgba(2,30,30,0.28)';
+  ctx.shadowBlur    = 18 * sc;
+  ctx.shadowOffsetY = 7  * sc;
 
-  // Leaf fill
   ctx.fillStyle = 'rgba(255,255,255,0.97)';
   ctx.beginPath();
-  ctx.moveTo(lx, ly - lh);
-  ctx.bezierCurveTo(lx + lw * 0.82, ly - lh * 0.28, lx + lw, ly + lh * 0.18, lx, ly + lh);
-  ctx.bezierCurveTo(lx - lw,       ly + lh * 0.18, lx - lw * 0.82, ly - lh * 0.28, lx, ly - lh);
+  ctx.moveTo(lx, ltop);
+  // Right side: shoulder out, then taper to bottom point
+  ctx.bezierCurveTo(
+    lx + lw * 0.85, ltop + (lbot - ltop) * 0.20,
+    lx + lw,        ltop + (lbot - ltop) * 0.50,
+    lx,             lbot
+  );
+  // Left side (mirror)
+  ctx.bezierCurveTo(
+    lx - lw,        ltop + (lbot - ltop) * 0.50,
+    lx - lw * 0.85, ltop + (lbot - ltop) * 0.20,
+    lx,             ltop
+  );
   ctx.fill();
 
   ctx.shadowBlur    = 0;
   ctx.shadowOffsetY = 0;
 
-  // Leaf midrib
-  ctx.strokeStyle = 'rgba(12,102,40,0.45)';
-  ctx.lineWidth   = 7.5 * sc;
+  // ── 4. Midrib (teal, creates fork-handle + leaf-vein visual) ──────────
+  ctx.strokeStyle = 'rgba(4,48,48,0.42)';
+  ctx.lineWidth   = 8 * sc;
   ctx.lineCap     = 'round';
   ctx.beginPath();
-  ctx.moveTo(lx, ly - lh * 0.88);
-  ctx.lineTo(lx, ly + lh * 0.84);
+  ctx.moveTo(lx, ltop + 8  * sc);
+  ctx.lineTo(lx, lbot - 10 * sc);
   ctx.stroke();
 
-  // Leaf veins (3 pairs, graceful curves)
-  ctx.lineWidth   = 4 * sc;
-  ctx.strokeStyle = 'rgba(12,102,40,0.28)';
+  // ── 5. Leaf veins (3 pairs) ────────────────────────────────────────────
+  ctx.lineWidth   = 5 * sc;
+  ctx.strokeStyle = 'rgba(4,48,48,0.22)';
+  const lh   = lbot - ltop;
   const veins = [
-    { fy: -0.38, fx: 0.72 },
-    { fy:  0.06, fx: 0.88 },
-    { fy:  0.45, fx: 0.60 },
+    { fy: 0.24, fw: 0.72 },
+    { fy: 0.46, fw: 0.88 },
+    { fy: 0.64, fw: 0.64 },
   ];
+
   for (const v of veins) {
-    const vy = ly + v.fy * lh;
-    const vx = lw * v.fx;
+    const vy = ltop + v.fy * lh;
+    const vx = lw   * v.fw;
+    // right vein
     ctx.beginPath();
     ctx.moveTo(lx, vy);
     ctx.quadraticCurveTo(lx + vx * 0.55, vy - lh * 0.04, lx + vx, vy + lh * 0.02);
     ctx.stroke();
+    // left vein (mirror)
     ctx.beginPath();
     ctx.moveTo(lx, vy);
     ctx.quadraticCurveTo(lx - vx * 0.55, vy - lh * 0.04, lx - vx, vy + lh * 0.02);
@@ -154,24 +156,27 @@ function drawIcon(canvas) {
 }
 
 function generate() {
-  const sizes = [192, 512, 180];
-  const names = ['icon-192x192.png', 'icon-512x512.png', 'apple-touch-icon.png'];
-  const ids   = ['c192',             'c512',              'c180'];
-  const div   = document.getElementById('links');
+  const configs = [
+    { id: 'c192', name: 'icon-192x192.png'    },
+    { id: 'c512', name: 'icon-512x512.png'    },
+    { id: 'c180', name: 'apple-touch-icon.png' },
+  ];
+  const div = document.getElementById('links');
   div.innerHTML = '';
-  sizes.forEach((size, i) => {
-    const canvas = document.getElementById(ids[i]);
+
+  for (const { id, name } of configs) {
+    const canvas = document.getElementById(id);
     drawIcon(canvas);
     const a = document.createElement('a');
-    a.href     = canvas.toDataURL('image/png');
-    a.download = names[i];
-    a.textContent = `⬇ ${names[i]}`;
+    a.href      = canvas.toDataURL('image/png');
+    a.download  = name;
+    a.textContent = `⬇ ${name}`;
     div.appendChild(a);
-  });
+  }
 }
 
 // Auto-preview on load
-window.onload = () => generate();
+window.addEventListener('load', generate);
 </script>
 </body>
 </html>
