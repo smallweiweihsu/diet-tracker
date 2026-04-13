@@ -1,111 +1,177 @@
 <!DOCTYPE html>
 <html>
-<head><title>Generate Icons</title></head>
+<head>
+<title>Generate Icons</title>
+<style>
+  body { font-family: -apple-system, sans-serif; padding: 24px; background: #f0f0f5; }
+  h2 { margin-bottom: 8px; }
+  .canvases { display: flex; gap: 12px; align-items: flex-end; margin: 16px 0; flex-wrap: wrap; }
+  canvas { border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
+  button { padding: 12px 28px; font-size: 16px; background: #34c759; color: white; border: none;
+    border-radius: 10px; cursor: pointer; font-weight: 600; }
+  #links a { display: inline-block; margin: 8px 8px 0 0; padding: 9px 18px; background: white;
+    border-radius: 8px; color: #1c1c1e; text-decoration: none; font-size: 14px; font-weight: 500;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+</style>
+</head>
 <body>
-<p>點擊按鈕產生圖示，然後分別點擊連結下載</p>
-<canvas id="c192" width="192" height="192" style="border:1px solid #ccc;margin:4px"></canvas>
-<canvas id="c512" width="512" height="512" style="border:1px solid #ccc;margin:4px;width:192px;height:192px"></canvas>
-<canvas id="c180" width="180" height="180" style="border:1px solid #ccc;margin:4px"></canvas>
-<br><br>
-<button onclick="generate()" style="padding:10px 20px;font-size:16px;background:#34c759;color:white;border:none;border-radius:8px;cursor:pointer">生成並下載圖示</button>
-<div id="links" style="margin-top:16px;font-family:sans-serif"></div>
+<h2>DietTrack Icon Generator</h2>
+<p>點擊按鈕生成圖示，再下載並覆蓋 <code>public/icons/</code> 內的三個 PNG 檔案</p>
+<div class="canvases">
+  <div><div style="font-size:12px;color:#666;margin-bottom:4px">192×192</div>
+    <canvas id="c192" width="192" height="192"></canvas></div>
+  <div><div style="font-size:12px;color:#666;margin-bottom:4px">512×512 (縮小預覽)</div>
+    <canvas id="c512" width="512" height="512" style="width:160px;height:160px"></canvas></div>
+  <div><div style="font-size:12px;color:#666;margin-bottom:4px">180×180 (Apple)</div>
+    <canvas id="c180" width="180" height="180"></canvas></div>
+</div>
+<button onclick="generate()">生成並下載圖示</button>
+<div id="links"></div>
+
 <script>
 function drawIcon(canvas) {
   const ctx = canvas.getContext('2d');
   const s = canvas.width;
-  const r = s * 0.22; // corner radius
-
-  // === Background gradient ===
-  const grad = ctx.createLinearGradient(0, 0, s, s);
-  grad.addColorStop(0, '#4cd964');
-  grad.addColorStop(1, '#1e9e3a');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.roundRect(0, 0, s, s, r);
-  ctx.fill();
-
-  // Scale factor (all coords designed at 512)
   const sc = s / 512;
 
-  // === Progress ring track ===
-  const cx = 256 * sc, cy = 238 * sc, ringR = 138 * sc, sw = 30 * sc;
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-  ctx.lineWidth = sw;
+  // ── 1. Background (clipped to rounded rect) ──────────────────────────
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(0, 0, s, s, s * 0.225);
+  ctx.clip();
+
+  // Deep green diagonal gradient
+  const bg = ctx.createLinearGradient(0, 0, s * 0.65, s);
+  bg.addColorStop(0,   '#43E07A');
+  bg.addColorStop(0.5, '#1BBD4C');
+  bg.addColorStop(1,   '#0A6628');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, s, s);
+
+  // Subtle glossy highlight at top (gives 3-D depth)
+  const gloss = ctx.createRadialGradient(s * 0.5, 0, 0, s * 0.5, s * 0.55, s * 0.75);
+  gloss.addColorStop(0,    'rgba(255,255,255,0.36)');
+  gloss.addColorStop(0.38, 'rgba(255,255,255,0.09)');
+  gloss.addColorStop(1,    'rgba(0,0,0,0)');
+  ctx.fillStyle = gloss;
+  ctx.fillRect(0, 0, s, s);
+
+  // Subtle vignette at bottom corners
+  const vignette = ctx.createRadialGradient(s * 0.5, s * 0.5, s * 0.35, s * 0.5, s * 0.5, s * 0.72);
+  vignette.addColorStop(0,   'rgba(0,0,0,0)');
+  vignette.addColorStop(1,   'rgba(0,0,0,0.18)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, s, s);
+
+  ctx.restore();
+
+  // ── 2. Thin progress arc (280° gauge, 78% filled) ────────────────────
+  const cx = 256 * sc, cy = 256 * sc;
+  const arcR = 176 * sc;
+  const arcW = 13 * sc;
+  const totalArc = Math.PI * 1.556; // 280° in radians
+  const startA = Math.PI * 0.5 + (Math.PI * 2 - totalArc) / 2; // centered bottom gap
+
+  // Track
+  ctx.strokeStyle = 'rgba(255,255,255,0.20)';
+  ctx.lineWidth = arcW;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+  ctx.arc(cx, cy, arcR, startA, startA + totalArc);
   ctx.stroke();
 
-  // === Progress ring fill (75%) ===
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = sw;
+  // Fill 78%
+  ctx.strokeStyle = 'rgba(255,255,255,0.90)';
+  ctx.lineWidth = arcW;
   ctx.lineCap = 'round';
-  const startAngle = -Math.PI / 2;
-  const endAngle = startAngle + Math.PI * 2 * 0.75;
   ctx.beginPath();
-  ctx.arc(cx, cy, ringR, startAngle, endAngle);
+  ctx.arc(cx, cy, arcR, startA, startA + totalArc * 0.78);
   ctx.stroke();
 
-  // === Fork ===
-  const fx = 256 * sc, fy = 256 * sc;
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 18 * sc;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
+  // End dot (glowing white circle at arc tip)
+  const tipA = startA + totalArc * 0.78;
+  const tipX = cx + Math.cos(tipA) * arcR;
+  const tipY = cy + Math.sin(tipA) * arcR;
+  ctx.shadowColor = 'rgba(255,255,255,0.8)';
+  ctx.shadowBlur = 10 * sc;
+  ctx.fillStyle = 'white';
+  ctx.beginPath();
+  ctx.arc(tipX, tipY, arcW * 0.62, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
-  // Three tines
-  const tineTop = fy - 88 * sc;
-  const tineBot = fy - 36 * sc;
-  const tineSpacing = 22 * sc;
-  for (let i = -1; i <= 1; i++) {
+  // ── 3. Leaf (main symbol) ─────────────────────────────────────────────
+  const lx = 256 * sc, ly = 248 * sc;
+  const lh = 182 * sc;   // half-height
+  const lw = 90 * sc;    // half-width
+
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,50,20,0.30)';
+  ctx.shadowBlur   = 20 * sc;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 8 * sc;
+
+  // Leaf fill
+  ctx.fillStyle = 'rgba(255,255,255,0.97)';
+  ctx.beginPath();
+  ctx.moveTo(lx, ly - lh);
+  ctx.bezierCurveTo(lx + lw * 0.82, ly - lh * 0.28, lx + lw, ly + lh * 0.18, lx, ly + lh);
+  ctx.bezierCurveTo(lx - lw,       ly + lh * 0.18, lx - lw * 0.82, ly - lh * 0.28, lx, ly - lh);
+  ctx.fill();
+
+  ctx.shadowBlur    = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Leaf midrib
+  ctx.strokeStyle = 'rgba(12,102,40,0.45)';
+  ctx.lineWidth   = 7.5 * sc;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(lx, ly - lh * 0.88);
+  ctx.lineTo(lx, ly + lh * 0.84);
+  ctx.stroke();
+
+  // Leaf veins (3 pairs, graceful curves)
+  ctx.lineWidth   = 4 * sc;
+  ctx.strokeStyle = 'rgba(12,102,40,0.28)';
+  const veins = [
+    { fy: -0.38, fx: 0.72 },
+    { fy:  0.06, fx: 0.88 },
+    { fy:  0.45, fx: 0.60 },
+  ];
+  for (const v of veins) {
+    const vy = ly + v.fy * lh;
+    const vx = lw * v.fx;
     ctx.beginPath();
-    ctx.moveTo(fx + i * tineSpacing, tineTop);
-    ctx.lineTo(fx + i * tineSpacing, tineBot);
+    ctx.moveTo(lx, vy);
+    ctx.quadraticCurveTo(lx + vx * 0.55, vy - lh * 0.04, lx + vx, vy + lh * 0.02);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lx, vy);
+    ctx.quadraticCurveTo(lx - vx * 0.55, vy - lh * 0.04, lx - vx, vy + lh * 0.02);
     ctx.stroke();
   }
-  // Handle stem
-  ctx.beginPath();
-  ctx.moveTo(fx - tineSpacing, tineBot);
-  ctx.bezierCurveTo(fx - tineSpacing, tineBot + 18 * sc, fx, tineBot + 24 * sc, fx, tineBot + 26 * sc);
-  ctx.lineTo(fx, fy + 72 * sc);
-  ctx.stroke();
-
-  // === Small leaf accent (top-right) ===
-  ctx.save();
-  ctx.translate(338 * sc, 132 * sc);
-  ctx.rotate(-0.7);
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, 22 * sc, 13 * sc, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Leaf midrib
-  ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-  ctx.lineWidth = 5 * sc;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(-18 * sc, 0);
-  ctx.lineTo(18 * sc, 0);
-  ctx.stroke();
-  ctx.restore();
 }
 
 function generate() {
   const sizes = [192, 512, 180];
   const names = ['icon-192x192.png', 'icon-512x512.png', 'apple-touch-icon.png'];
-  const ids = ['c192', 'c512', 'c180'];
-  const div = document.getElementById('links');
+  const ids   = ['c192',             'c512',              'c180'];
+  const div   = document.getElementById('links');
   div.innerHTML = '';
-  sizes.forEach((s, i) => {
+  sizes.forEach((size, i) => {
     const canvas = document.getElementById(ids[i]);
     drawIcon(canvas);
     const a = document.createElement('a');
-    a.href = canvas.toDataURL('image/png');
+    a.href     = canvas.toDataURL('image/png');
     a.download = names[i];
-    a.textContent = `⬇ 下載 ${names[i]}`;
-    a.style.cssText = 'display:block;margin:10px 0;padding:8px 16px;background:#f0f0f5;border-radius:8px;color:#1c1c1e;text-decoration:none;font-size:15px;width:fit-content;';
+    a.textContent = `⬇ ${names[i]}`;
     div.appendChild(a);
   });
 }
+
+// Auto-preview on load
+window.onload = () => generate();
 </script>
 </body>
 </html>
