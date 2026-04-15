@@ -9,8 +9,9 @@
   --color-text-muted: #8e8e93;
   --color-success: #34c759;
   --color-danger: #ff3b30;
-  --color-primary: #34c759;
-  --color-primary-dark: #28a745;
+  --color-primary: #0A9880;
+  --color-primary-dark: #0D7A65;
+  --page-accent: #0A9880;
   --color-blue: #007aff;
   --color-orange: #ff9500;
   --radius: 18px;
@@ -30,8 +31,9 @@
     --color-text: #f2f2f7;
     --color-text-muted: #8e8e93;
     --color-success: #30d158;
-    --color-primary: #30d158;
-    --color-primary-dark: #25a244;
+    --color-primary: #12C8AB;
+    --color-primary-dark: #0FA08E;
+    --page-accent: #12C8AB;
   }
 }
 
@@ -66,7 +68,51 @@ a { text-decoration: none; color: inherit; }
   margin: 0 auto;
   position: relative;
   padding-top: var(--safe-top);
+  /* Default fallback background */
+  background: #FAF4EB;
+  transition: background 0.35s ease;
 }
+
+/* ─── Per-page theme backgrounds + accent colour ──────────────────────── */
+[data-page="record"] {
+  --page-accent: #FF6B00;
+  background:
+    radial-gradient(ellipse at 18% 0%,  rgba(255,107,0,0.20) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 88%, rgba(255,107,0,0.10) 0%, transparent 44%),
+    #FAF4EB;
+}
+[data-page="stats"] {
+  --page-accent: #0066FF;
+  background:
+    radial-gradient(ellipse at 18% 0%,  rgba(0,102,255,0.16) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 88%, rgba(0,102,255,0.09) 0%, transparent 44%),
+    #EEF4FF;
+}
+[data-page="weight"] {
+  --page-accent: #8B5CF6;
+  background:
+    radial-gradient(ellipse at 18% 0%,  rgba(139,92,246,0.17) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 88%, rgba(139,92,246,0.09) 0%, transparent 44%),
+    #F3F0FF;
+}
+[data-page="profile"] {
+  --page-accent: #0A9880;
+  background:
+    radial-gradient(ellipse at 18% 0%,  rgba(10,152,128,0.17) 0%, transparent 52%),
+    radial-gradient(ellipse at 82% 88%, rgba(10,152,128,0.09) 0%, transparent 44%),
+    #EDFAF7;
+}
+
+/* Dark mode per-page blobs */
+@media (prefers-color-scheme: dark) {
+  [data-page="record"] { background: radial-gradient(ellipse at 18% 0%, rgba(255,107,0,0.14) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(255,107,0,0.07) 0%, transparent 44%), #111113; }
+  [data-page="stats"]  { background: radial-gradient(ellipse at 18% 0%, rgba(0,102,255,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(0,102,255,0.07) 0%, transparent 44%), #111113; }
+  [data-page="weight"] { background: radial-gradient(ellipse at 18% 0%, rgba(139,92,246,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(139,92,246,0.07) 0%, transparent 44%), #111113; }
+  [data-page="profile"]{ background: radial-gradient(ellipse at 18% 0%, rgba(10,152,128,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(10,152,128,0.07) 0%, transparent 44%), #111113; }
+}
+
+/* Loading placeholder (before storeReady) */
+.app-loading { height: 100svh; background: var(--color-bg); }
 
 .app-content {
   flex: 1;
@@ -76,14 +122,22 @@ a { text-decoration: none; color: inherit; }
 
 /* ─── Card (iOS Liquid Glass) ───────────────────────────────────────────── */
 .card {
-  background: var(--color-surface);
+  background: rgba(255,255,255,0.80);
   -webkit-backdrop-filter: var(--blur-glass);
   backdrop-filter: var(--blur-glass);
   border-radius: var(--radius);
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255,255,255,0.65);
   padding: 16px;
   margin-bottom: 14px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.9) inset;
+}
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: rgba(28,28,30,0.82);
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset;
+  }
 }
 
 /* ─── Pages ─────────────────────────────────────────────────────────────── */
@@ -158,7 +212,7 @@ a { text-decoration: none; color: inherit; }
   transition: color 0.15s;
 }
 
-.nav-item.active { color: var(--color-primary); }
+.nav-item.active { color: var(--page-accent); }
 .nav-icon { font-size: 22px; line-height: 1; }
 .nav-label { font-size: 10px; font-weight: 500; }
 
@@ -400,7 +454,18 @@ input[type="text"], input[type="time"], input[type="date"], select {
 
 input[type="text"]:focus, input[type="time"]:focus, input[type="date"]:focus,
 .input-text:focus, select:focus {
-  border-color: var(--color-primary);
+  border-color: var(--page-accent);
+}
+
+/* iOS date picker — ensure text is visible and not clipped */
+input[type="date"] {
+  min-height: 44px;
+  text-align: left;
+  -webkit-text-fill-color: var(--color-text);
+}
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 140px;
 }
 
 select {
@@ -416,7 +481,7 @@ select {
 
 /* ─── Buttons ───────────────────────────────────────────────────────────── */
 .btn-primary {
-  background: var(--color-primary);
+  background: var(--page-accent);
   color: white;
   border-radius: var(--radius-sm);
   padding: 12px 20px;

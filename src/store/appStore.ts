@@ -74,6 +74,7 @@ function recomputeDay(log: DayLog, target: number): DayLog {
 
 interface AppState {
   // Multi-user
+  storeReady: boolean
   users: User[]
   currentUser: User | null
 
@@ -136,6 +137,7 @@ function loadUserData(userId: string) {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  storeReady: false,
   users: [],
   currentUser: null,
   profile: null,
@@ -156,9 +158,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const currentUser = users.find(u => u.id === activeId) ?? null
 
     if (currentUser) {
-      set({ users, currentUser, ...loadUserData(currentUser.id) })
+      set({ users, currentUser, ...loadUserData(currentUser.id), storeReady: true })
     } else {
-      set({ users, currentUser: null })
+      set({ users, currentUser: null, storeReady: true })
     }
   },
 

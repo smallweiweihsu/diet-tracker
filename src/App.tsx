@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAppStore } from './store/appStore'
 import BottomNav from './components/layout/BottomNav'
 import RecordPage from './pages/RecordPage'
@@ -12,13 +12,23 @@ import './index.css'
 
 export default function App() {
   const initStore = useAppStore(s => s.initStore)
+  const storeReady = useAppStore(s => s.storeReady)
   const users = useAppStore(s => s.users)
   const currentUser = useAppStore(s => s.currentUser)
   const setupComplete = useAppStore(s => s.settings.setupComplete)
+  const { pathname } = useLocation()
 
   useEffect(() => {
     initStore()
   }, [initStore])
+
+  // Derive page name for theme
+  const page = pathname.split('/').filter(Boolean).pop() || 'record'
+
+  // Store not ready yet — show nothing (avoids flash)
+  if (!storeReady) {
+    return <div className="app-loading" />
+  }
 
   // No users at all → first-time setup wizard
   if (users.length === 0) {
@@ -36,7 +46,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-page={page}>
       <div className="app-content">
         <Routes>
           <Route path="/record" element={<RecordPage />} />

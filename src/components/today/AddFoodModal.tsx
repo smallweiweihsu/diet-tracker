@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import type { FoodEntry, MealType } from '../../types'
 import { useAppStore } from '../../store/appStore'
 import { userGet, userSet } from '../../utils/storage'
@@ -160,7 +161,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
     { label: '鈉', value: sodium, set: setSodium, unit: 'mg', type: 'number', placeholder: '0' },
   ]
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
@@ -259,6 +260,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
