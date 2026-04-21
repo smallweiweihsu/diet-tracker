@@ -24,35 +24,77 @@ export default function MealSection({ meal, entries, date }: Props) {
 
   const [open, setOpen] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editEntry, setEditEntry] = useState<FoodEntry | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
+  // offset per entry: 0 = closed, -DELETE_THRESHOLD = swiped open (showing delete btn)
   const [swipeOffsets, setSwipeOffsets] = useState<Record<string, number>>({})
   const touchStartX = useRef<Record<string, number>>({})
 
   const DELETE_THRESHOLD = 80
 
+  function closeAllSwipes(exceptId?: string) {
+    setSwipeOffsets(prev => {
+      const next: Record<string, number> = {}
+      Object.keys(prev).forEach(k => { next[k] = k === exceptId ? prev[k] : 0 })
+      return next
+    })
+  }
+
   function handleTouchStart(id: string, e: React.TouchEvent) {
     touchStartX.current[id] = e.touches[0].clientX
+    // Close any other open swipes
+    closeAllSwipes(id)
   }
 
   function handleTouchMove(id: string, e: React.TouchEvent) {
     const delta = e.touches[0].clientX - (touchStartX.current[id] ?? 0)
-    if (delta > 0) return // only allow left swipe
-    setSwipeOffsets(prev => ({ ...prev, [id]: Math.max(delta, -DELETE_THRESHOLD - 20) }))
+    if (delta > 0) return // only left swipe
+    setSwipeOffsets(prev => ({ ...prev, [id]: Math.max(delta, -DELETE_THRESHOLD - 8) }))
   }
 
-  function handleTouchEnd(id: string, meal: MealType) {
+  function handleTouchEnd(id: string) {
     const offset = swipeOffsets[id] ?? 0
-    if (offset <= -DELETE_THRESHOLD) {
-      removeFood(meal, id, date)
+    if (offset <= -DELETE_THRESHOLD * 0.6) {
+      // Snap to reveal position — wait for tap on delete button
+      setSwipeOffsets(prev => ({ ...prev, [id]: -DELETE_THRESHOLD }))
+    } else {
+      // Snap back
+      setSwipeOffsets(prev => ({ ...prev, [id]: 0 }))
     }
+  }
+
+  function confirmDelete(id: string) {
+    removeFood(meal, id, date)
     setSwipeOffsets(prev => ({ ...prev, [id]: 0 }))
   }
 
   const total = entries.reduce((s, e) => s + e.calories, 0)
 
-  function handleToggleExpand(id: string) {
-    setExpandedId(prev => prev === id ? null : id)
+  function handleEntryClick(id: string, offset: number) {
+    if (offset !== 0) {
+      closeAllSwipes()
+    } else {
+      setExpandedId(prev => prev === id ? null : id)
+    }
+  }
+
+  function handleOpenAdd() {
+    closeAllSwipes()
+    setEditEntry(null)
+    setShowModal(true)
+  }
+
+  function handleOpenEdit(entry: FoodEntry) {
+    closeAllSwipes()
+    setEditEntry(entry)
+    setExpandedId(null)
+    setShowModal(true)
+  }
+
+  function handleCloseModal() {
+    setShowModal(false)
+    setEditEntry(null)
   }
 
   function handleSaveAsTemplate() {
@@ -78,7 +120,6 @@ export default function MealSection({ meal, entries, date }: Props) {
     alert('✓ 已儲存為範本')
   }
 
-  // Nutrition detail rows for expanded view
   function renderDetail(entry: FoodEntry) {
     const items = [
       { label: '熱量', value: `${entry.calories} kcal` },
@@ -95,8 +136,8 @@ export default function MealSection({ meal, entries, date }: Props) {
     const photos = entry.photoUrls?.length ? entry.photoUrls : (entry.photoUrl ? [entry.photoUrl] : [])
     return (
       <div className="food-detail">
-        {photos.length > 1 && (
-          <div className="food-detail-photos">
+        {photos.length > 0 && (
+          <div className="food-detail-photos" style={{ gridColumn: '1 / -1' }}>
             {photos.map((url, i) => (
               <img key={i} src={url} alt={`photo-${i}`} className="food-detail-photo" />
             ))}
@@ -108,6 +149,11 @@ export default function MealSection({ meal, entries, date }: Props) {
             <span className="food-detail-value">{item.value}</span>
           </div>
         ))}
+        <div className="food-detail-edit-row">
+          <button className="btn-edit-food" onClick={() => handleOpenEdit(entry)}>
+            ✏️ 編輯
+          </button>
+        </div>
       </div>
     )
   }
@@ -128,20 +174,25 @@ export default function MealSection({ meal, entries, date }: Props) {
 
           {entries.map(entry => {
             const offset = swipeOffsets[entry.id] ?? 0
-            const showDelete = offset <= -DELETE_THRESHOLD * 0.6
+            const isRevealed = offset <= -DELETE_THRESHOLD * 0.6
             return (
               <div key={entry.id} className="swipe-wrapper">
-                {/* Delete background revealed on left swipe */}
-                <div className={`swipe-delete-bg ${showDelete ? 'visible' : ''}`}>
+                {/* Delete button revealed on left swipe — requires explicit tap */}
+                <button
+                  className={`swipe-delete-bg ${isRevealed ? 'visible' : ''}`}
+                  onClick={() => confirmDelete(entry.id)}
+                  aria-label="刪除"
+                >
+                  <span style={{ fontSize: 18 }}>🗑</span>
                   <span>刪除</span>
-                </div>
+                </button>
                 <div
                   className={`food-entry ${expandedId === entry.id ? 'expanded' : ''}`}
                   style={{ transform: `translateX(${offset}px)`, transition: offset === 0 ? 'transform 0.25s ease' : 'none' }}
-                  onClick={() => offset === 0 && handleToggleExpand(entry.id)}
+                  onClick={() => handleEntryClick(entry.id, offset)}
                   onTouchStart={e => handleTouchStart(entry.id, e)}
                   onTouchMove={e => handleTouchMove(entry.id, e)}
-                  onTouchEnd={() => handleTouchEnd(entry.id, meal)}
+                  onTouchEnd={() => handleTouchEnd(entry.id)}
                 >
                   {(entry.photoUrls?.[0] ?? entry.photoUrl) && (
                     <img src={entry.photoUrls?.[0] ?? entry.photoUrl} alt={entry.name} className="food-thumb" />
@@ -163,7 +214,7 @@ export default function MealSection({ meal, entries, date }: Props) {
           })}
 
           <div className="meal-actions">
-            <button className="btn-add-food" onClick={() => setShowModal(true)}>
+            <button className="btn-add-food" onClick={handleOpenAdd}>
               + 新增食物
             </button>
             {mealTemplates.length > 0 && (
@@ -203,7 +254,12 @@ export default function MealSection({ meal, entries, date }: Props) {
       )}
 
       {showModal && (
-        <AddFoodModal meal={meal} date={date} onClose={() => setShowModal(false)} />
+        <AddFoodModal
+          meal={meal}
+          date={date}
+          onClose={handleCloseModal}
+          editEntry={editEntry ?? undefined}
+        />
       )}
     </div>
   )

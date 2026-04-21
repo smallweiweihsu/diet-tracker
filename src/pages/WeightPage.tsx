@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAppStore } from '../store/appStore'
 import { todayStr } from '../utils/dateHelpers'
 import { computeStreak } from '../store/appStore'
+import WeekCalendar from '../components/record/WeekCalendar'
 import WeightInput from '../components/weight/WeightInput'
 import WeightChart from '../components/weight/WeightChart'
 import BMICard from '../components/weight/BMICard'
@@ -16,23 +17,24 @@ export default function WeightPage() {
   const [selectedDate, setSelectedDate] = useState(todayStr())
   const streak = computeStreak(days)
 
+  // Dates that have weight entries — show as dots on calendar
+  const weightDates = useMemo(
+    () => new Set(weights.map(w => w.date)),
+    [weights]
+  )
+
   return (
     <div className="page weight-page">
       <div className="page-header">
         <h1>體重</h1>
       </div>
 
-      {/* Date picker */}
-      <div className="card weight-date-picker">
-        <label>選擇日期</label>
-        <input
-          type="date"
-          className="input-text"
-          value={selectedDate}
-          max={todayStr()}
-          onChange={e => setSelectedDate(e.target.value)}
-        />
-      </div>
+      {/* Week Calendar — like the Record page */}
+      <WeekCalendar
+        selectedDate={selectedDate}
+        onSelect={setSelectedDate}
+        markedDates={weightDates}
+      />
 
       <WeightInput selectedDate={selectedDate} />
 

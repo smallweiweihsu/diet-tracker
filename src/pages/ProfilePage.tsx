@@ -83,12 +83,15 @@ export default function ProfilePage() {
   async function handleExport() {
     if (!currentUser) return
     const json = exportUserData(currentUser.id)
-    const today = new Date().toISOString().slice(0, 10)
-    const filename = `diet-backup-${currentUser.name}-${today}.json`
+    const now = new Date()
+    const datePart = now.toISOString().slice(0, 10)
+    const timePart = now.toTimeString().slice(0, 5)  // "HH:MM"
+    const timestamp = `${datePart} ${timePart}`
+    const filename = `diet-backup-${currentUser.name}-${datePart}.json`
     const ok = await smartExport(json, filename)
     if (ok) {
-      localStorage.setItem(LAST_BACKUP_KEY, today)
-      setLastBackup(today)
+      localStorage.setItem(LAST_BACKUP_KEY, timestamp)
+      setLastBackup(timestamp)
     }
   }
 

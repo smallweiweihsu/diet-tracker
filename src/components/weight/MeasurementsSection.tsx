@@ -45,11 +45,11 @@ export default function MeasurementsSection() {
       <h3>三圍記錄</h3>
 
       <div className="measurements-form">
-        <div className="form-group">
+        <div className="form-group measurements-date-group">
           <label>日期</label>
           <input
             type="date"
-            className="input-text"
+            className="input-text measurements-date-input"
             value={date}
             max={todayStr()}
             onChange={e => {

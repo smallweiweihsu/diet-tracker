@@ -104,6 +104,7 @@ interface AppState {
   // ── Day log actions ──
   getDayLog(date: string): DayLog
   addFood(meal: MealType, entry: FoodEntry, date: string): void
+  updateFood(meal: MealType, entry: FoodEntry, date: string): void
   removeFood(meal: MealType, id: string, date: string): void
   setExercise(kcal: number, date: string): void
   setWater(ml: number, date: string): void
@@ -155,7 +156,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const users = getUserList()
     const activeId = getActiveUserId()
-    const currentUser = users.find(u => u.id === activeId) ?? null
+    let currentUser = users.find(u => u.id === activeId) ?? null
+
+    // Auto-select if only one user and none is active (e.g. after update)
+    if (!currentUser && users.length === 1) {
+      currentUser = users[0]
+      setActiveUserId(users[0].id)
+    }
 
     if (currentUser) {
       set({ users, currentUser, ...loadUserData(currentUser.id), storeReady: true })
@@ -244,6 +251,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     userSet('recentFoods', uid, recent)
 
     set({ days, recentFoods: recent })
+  },
+
+  updateFood(meal, entry, date) {
+    const uid = get().currentUser?.id ?? ''
+    const days = { ...get().days }
+    const log = days[date]
+    if (!log) return
+    const updated = { ...log }
+    updated.meals = {
+      ...log.meals,
+      [meal]: log.meals[meal].map(e => e.id === entry.id ? entry : e),
+    }
+    const target = get().profile?.dailyCalorieTarget ?? 2000
+    days[date] = recomputeDay(updated, target)
+    userSet('days', uid, days)
+    set({ days })
   },
 
   removeFood(meal, id, date) {

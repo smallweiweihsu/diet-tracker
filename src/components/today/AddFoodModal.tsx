@@ -12,10 +12,13 @@ const MEAL_LABELS: Record<MealType, string> = {
   snacks: '點心 & 飲料',
 }
 
+const MAX_PHOTOS = 6
+
 interface Props {
   meal: MealType
   date: string
   onClose: () => void
+  editEntry?: FoodEntry  // when provided → edit mode
 }
 
 // Compress image to base64 using canvas (max 300px, JPEG 0.6)
@@ -46,31 +49,38 @@ async function compressImage(file: File): Promise<string> {
 
 const DRAFT_KEY = 'foodDraft'
 
-export default function AddFoodModal({ meal, date, onClose }: Props) {
+export default function AddFoodModal({ meal, date, onClose, editEntry }: Props) {
   const addFood = useAppStore(s => s.addFood)
+  const updateFood = useAppStore(s => s.updateFood)
   const currentUser = useAppStore(s => s.currentUser)
   const userId = currentUser?.id ?? ''
 
-  // Load draft on open
-  const draft = userGet(DRAFT_KEY, userId, null)
+  const isEdit = !!editEntry
 
-  const [name, setName] = useState(draft?.name ?? '')
-  const [portion, setPortion] = useState(draft?.portion ?? '')
-  const [calories, setCalories] = useState(draft?.calories?.toString() ?? '')
-  const [protein, setProtein] = useState(draft?.protein?.toString() ?? '')
-  const [carbs, setCarbs] = useState(draft?.carbs?.toString() ?? '')
-  const [fat, setFat] = useState(draft?.fat?.toString() ?? '')
-  const [sugar, setSugar] = useState(draft?.sugar?.toString() ?? '')
-  const [saturatedFat, setSaturatedFat] = useState(draft?.saturatedFat?.toString() ?? '')
-  const [fiber, setFiber] = useState(draft?.fiber?.toString() ?? '')
-  const [sodium, setSodium] = useState(draft?.sodium?.toString() ?? '')
-  const [photoUrls, setPhotoUrls] = useState<string[]>(
-    draft?.photoUrls ?? (draft?.photoUrl ? [draft.photoUrl] : [])
-  )
+  // In edit mode, skip draft. In add mode, load draft.
+  const draft = isEdit ? null : userGet(DRAFT_KEY, userId, null)
+
+  const [name, setName] = useState(editEntry?.name ?? draft?.name ?? '')
+  const [portion, setPortion] = useState(editEntry?.portion ?? draft?.portion ?? '')
+  const [calories, setCalories] = useState((editEntry?.calories ?? draft?.calories)?.toString() ?? '')
+  const [protein, setProtein] = useState((editEntry?.protein ?? draft?.protein)?.toString() ?? '')
+  const [carbs, setCarbs] = useState((editEntry?.carbs ?? draft?.carbs)?.toString() ?? '')
+  const [fat, setFat] = useState((editEntry?.fat ?? draft?.fat)?.toString() ?? '')
+  const [sugar, setSugar] = useState((editEntry?.sugar ?? draft?.sugar)?.toString() ?? '')
+  const [saturatedFat, setSaturatedFat] = useState((editEntry?.saturatedFat ?? draft?.saturatedFat)?.toString() ?? '')
+  const [fiber, setFiber] = useState((editEntry?.fiber ?? draft?.fiber)?.toString() ?? '')
+  const [sodium, setSodium] = useState((editEntry?.sodium ?? draft?.sodium)?.toString() ?? '')
+  const [photoUrls, setPhotoUrls] = useState<string[]>(() => {
+    if (editEntry) {
+      return editEntry.photoUrls?.length ? editEntry.photoUrls : (editEntry.photoUrl ? [editEntry.photoUrl] : [])
+    }
+    return draft?.photoUrls ?? (draft?.photoUrl ? [draft.photoUrl] : [])
+  })
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Save draft on any change
+  // Save draft on any change (only in add mode)
   const saveDraft = useCallback(() => {
+    if (isEdit) return
     userSet(DRAFT_KEY, userId, {
       name, portion,
       calories: Number(calories) || 0,
@@ -83,7 +93,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
       sodium: Number(sodium) || 0,
       photoUrls,
     })
-  }, [name, portion, calories, protein, carbs, fat, sugar, saturatedFat, fiber, sodium, photoUrls, userId])
+  }, [isEdit, name, portion, calories, protein, carbs, fat, sugar, saturatedFat, fiber, sodium, photoUrls, userId])
 
   useEffect(() => {
     saveDraft()
@@ -96,7 +106,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (files.length === 0) return
-    const remaining = Math.max(0, 4 - photoUrls.length)
+    const remaining = Math.max(0, MAX_PHOTOS - photoUrls.length)
     const toProcess = files.slice(0, remaining)
     const compressed = await Promise.all(toProcess.map(async f => {
       try { return await compressImage(f) }
@@ -124,7 +134,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
   function handleSave() {
     if (!name.trim() || !calories) return
     const entry: FoodEntry = {
-      id: crypto.randomUUID(),
+      id: editEntry?.id ?? crypto.randomUUID(),
       name: name.trim(),
       portion: portion.trim(),
       calories: Number(calories) || 0,
@@ -137,15 +147,19 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
       sodium: Number(sodium) || 0,
       photoUrls: photoUrls.length > 0 ? photoUrls : undefined,
       photoUrl: photoUrls[0],
-      loggedAt: new Date().toISOString(),
+      loggedAt: editEntry?.loggedAt ?? new Date().toISOString(),
     }
-    addFood(meal, entry, date)
-    clearDraft()
+    if (isEdit) {
+      updateFood(meal, entry, date)
+    } else {
+      addFood(meal, entry, date)
+      clearDraft()
+    }
     onClose()
   }
 
   function handleCancel() {
-    clearDraft()
+    if (!isEdit) clearDraft()
     onClose()
   }
 
@@ -165,13 +179,13 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>新增 {MEAL_LABELS[meal]}</h3>
+          <h3>{isEdit ? `編輯 ${MEAL_LABELS[meal]}` : `新增 ${MEAL_LABELS[meal]}`}</h3>
           <button className="btn-icon" onClick={handleCancel} aria-label="關閉">✕</button>
         </div>
 
         <div className="modal-body">
-          {/* Recent foods */}
-          <RecentFoodsRow onSelect={handleSelectRecent} />
+          {/* Recent foods — only shown in add mode */}
+          {!isEdit && <RecentFoodsRow onSelect={handleSelectRecent} />}
 
           {/* Photo upload */}
           {photoUrls.length > 0 ? (
@@ -186,7 +200,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
                   >✕</button>
                 </div>
               ))}
-              {photoUrls.length < 4 && (
+              {photoUrls.length < MAX_PHOTOS && (
                 <button className="photo-grid-add" onClick={() => fileRef.current?.click()}>
                   <span>+</span>
                 </button>
@@ -194,7 +208,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
             </div>
           ) : (
             <div className="photo-upload" onClick={() => fileRef.current?.click()}>
-              <span>📷 點此選取照片或拍照（選填，最多 4 張）</span>
+              <span>📷 點此選取照片或拍照（選填，最多 {MAX_PHOTOS} 張）</span>
             </div>
           )}
           <input
@@ -256,7 +270,7 @@ export default function AddFoodModal({ meal, date, onClose }: Props) {
             onClick={handleSave}
             disabled={!name.trim() || !calories}
           >
-            新增
+            {isEdit ? '儲存' : '新增'}
           </button>
         </div>
       </div>
