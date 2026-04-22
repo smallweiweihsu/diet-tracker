@@ -7,6 +7,7 @@ interface Props {
 
 const WATER_GOAL = 2000
 const QUICK_AMOUNTS = [250, 500, 750, 1000]
+const DROP_UNIT = 250
 
 export default function WaterTracker({ date, waterMl }: Props) {
   const setWater = useAppStore(s => s.setWater)
@@ -21,19 +22,36 @@ export default function WaterTracker({ date, waterMl }: Props) {
   }
 
   const pct = Math.min((waterMl / WATER_GOAL) * 100, 100)
-  const color = waterMl >= WATER_GOAL ? '#34c759' : '#5ac8fa'
+  const fillColor = waterMl >= WATER_GOAL ? 'var(--leaf-deep)' : 'var(--thread)'
 
   return (
     <div className="card water-tracker">
       <div className="water-header">
-        <span className="water-title">💧 飲水記錄</span>
-        <span className="water-value" style={{ color }}>
+        <span className="water-title">water glasses</span>
+        <span className="water-value">
           {waterMl} <span className="water-goal">/ {WATER_GOAL} ml</span>
         </span>
       </div>
 
+      {/* 8 水滴 SVG 視覺指示（每滴 = 250ml）*/}
+      <div className="water-drops-row">
+        {Array.from({ length: 8 }).map((_, i) => {
+          const filled = waterMl >= (i + 1) * DROP_UNIT
+          return (
+            <div key={i} className={`drop${filled ? ' on' : ''}`}>
+              <svg viewBox="0 0 24 32">
+                <path
+                  className={`drop-out${filled ? ' drop-in' : ''}`}
+                  d="M12 2 C12 12, 22 18, 22 24 A10 10 0 0 1 2 24 C2 18, 12 12, 12 2 Z"
+                />
+              </svg>
+            </div>
+          )
+        })}
+      </div>
+
       <div className="water-bar-track">
-        <div className="water-bar-fill" style={{ width: `${pct}%`, background: color }} />
+        <div className="water-bar-fill" style={{ width: `${pct}%`, background: fillColor }} />
       </div>
 
       <div className="water-quick-btns">

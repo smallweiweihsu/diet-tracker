@@ -1,40 +1,39 @@
 /* ─── CSS Variables ────────────────────────────────────────────────────── */
 :root {
-  --color-bg: #f0f0f5;
-  --color-surface: rgba(255,255,255,0.88);
-  --color-surface-solid: #ffffff;
-  --color-surface2: rgba(242,242,247,0.9);
-  --color-border: rgba(0,0,0,0.08);
-  --color-text: #1c1c1e;
-  --color-text-muted: #8e8e93;
-  --color-success: #34c759;
-  --color-danger: #ff3b30;
-  --color-primary: #0A9880;
-  --color-primary-dark: #0D7A65;
-  --page-accent: #0A9880;
-  --color-blue: #007aff;
-  --color-orange: #ff9500;
-  --radius: 18px;
-  --radius-sm: 12px;
-  --blur-glass: blur(20px) saturate(180%);
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
+  /* === Linen Journal 亞麻手帳色票 === */
+  --linen:      #f0e9dc;
+  --linen-2:    #e6ddc8;
+  --paper:      #f8f3e6;
+  --ink:        #4a4035;
+  --ink-soft:   #6b5d4d;
+  --muted:      #9b8f7d;
+  --thread:     #b6896a;
+  --leaf:       #7a8c5a;
+  --leaf-deep:  #5a6e42;
+  --berry:      #b55a5a;
+  --honey:      #d9a85a;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #111113;
-    --color-surface: rgba(28,28,30,0.88);
-    --color-surface-solid: #1c1c1e;
-    --color-surface2: rgba(44,44,46,0.9);
-    --color-border: rgba(255,255,255,0.08);
-    --color-text: #f2f2f7;
-    --color-text-muted: #8e8e93;
-    --color-success: #30d158;
-    --color-primary: #12C8AB;
-    --color-primary-dark: #0FA08E;
-    --page-accent: #12C8AB;
-  }
+  /* === 既有變數 → 對應亞麻值 === */
+  --color-bg:            var(--linen);
+  --color-surface:       var(--paper);
+  --color-surface-solid: var(--paper);
+  --color-surface2:      var(--linen-2);
+  --color-border:        rgba(107,93,77,0.15);
+  --color-text:          var(--ink);
+  --color-text-muted:    var(--muted);
+  --color-success:       var(--leaf-deep);
+  --color-danger:        var(--berry);
+  --color-primary:       var(--thread);
+  --color-primary-dark:  #9a7258;
+  --page-accent:         var(--thread);
+  --color-blue:          #5a7baa;
+  --color-orange:        var(--honey);
+
+  --radius:    4px;
+  --radius-sm: 4px;
+  --blur-glass: blur(0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* ─── Reset ────────────────────────────────────────────────────────────── */
@@ -46,11 +45,11 @@ html, body, #root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 16px;
   line-height: 1.45;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: #d8ceb8;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -67,48 +66,33 @@ a { text-decoration: none; color: inherit; }
   max-width: 480px;
   margin: 0 auto;
   position: relative;
+  overflow: hidden;
   padding-top: var(--safe-top);
-  /* Default fallback background */
-  background: #FAF4EB;
-  transition: background 0.35s ease;
+  background: var(--linen);
 }
 
-/* ─── Per-page theme backgrounds + accent colour ──────────────────────── */
-[data-page="record"] {
-  --page-accent: #FF6B00;
-  background:
-    radial-gradient(ellipse at 18% 0%,  rgba(255,107,0,0.20) 0%, transparent 52%),
-    radial-gradient(ellipse at 82% 88%, rgba(255,107,0,0.10) 0%, transparent 44%),
-    #FAF4EB;
+/* 亞麻布紋疊層 */
+.app-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.3 0 0 0 0 0.2 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    repeating-linear-gradient(0deg, transparent 0 1px, rgba(107,93,77,0.04) 1px 2px),
+    repeating-linear-gradient(90deg, transparent 0 1px, rgba(107,93,77,0.04) 1px 2px);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  z-index: 0;
 }
-[data-page="stats"] {
-  --page-accent: #0066FF;
-  background:
-    radial-gradient(ellipse at 18% 0%,  rgba(0,102,255,0.16) 0%, transparent 52%),
-    radial-gradient(ellipse at 82% 88%, rgba(0,102,255,0.09) 0%, transparent 44%),
-    #EEF4FF;
-}
-[data-page="weight"] {
-  --page-accent: #8B5CF6;
-  background:
-    radial-gradient(ellipse at 18% 0%,  rgba(139,92,246,0.17) 0%, transparent 52%),
-    radial-gradient(ellipse at 82% 88%, rgba(139,92,246,0.09) 0%, transparent 44%),
-    #F3F0FF;
-}
+.app-shell > * { position: relative; z-index: 1; }
+
+/* ─── Per-page accent colour（全 app 統一亞麻手帳色調） ────────────────── */
+[data-page="record"],
+[data-page="stats"],
+[data-page="weight"],
 [data-page="profile"] {
-  --page-accent: #0A9880;
-  background:
-    radial-gradient(ellipse at 18% 0%,  rgba(10,152,128,0.17) 0%, transparent 52%),
-    radial-gradient(ellipse at 82% 88%, rgba(10,152,128,0.09) 0%, transparent 44%),
-    #EDFAF7;
-}
-
-/* Dark mode per-page blobs */
-@media (prefers-color-scheme: dark) {
-  [data-page="record"] { background: radial-gradient(ellipse at 18% 0%, rgba(255,107,0,0.14) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(255,107,0,0.07) 0%, transparent 44%), #111113; }
-  [data-page="stats"]  { background: radial-gradient(ellipse at 18% 0%, rgba(0,102,255,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(0,102,255,0.07) 0%, transparent 44%), #111113; }
-  [data-page="weight"] { background: radial-gradient(ellipse at 18% 0%, rgba(139,92,246,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(139,92,246,0.07) 0%, transparent 44%), #111113; }
-  [data-page="profile"]{ background: radial-gradient(ellipse at 18% 0%, rgba(10,152,128,0.13) 0%, transparent 52%), radial-gradient(ellipse at 82% 88%, rgba(10,152,128,0.07) 0%, transparent 44%), #111113; }
+  --page-accent: var(--thread);
+  background: var(--linen);
 }
 
 /* Loading placeholder (before storeReady) */
@@ -120,24 +104,39 @@ a { text-decoration: none; color: inherit; }
   padding-bottom: calc(72px + var(--safe-bottom));
 }
 
-/* ─── Card (iOS Liquid Glass) ───────────────────────────────────────────── */
+/* ─── Card (紙卡質感) ────────────────────────────────────────────────────── */
 .card {
-  background: rgba(255,255,255,0.80);
-  -webkit-backdrop-filter: var(--blur-glass);
-  backdrop-filter: var(--blur-glass);
-  border-radius: var(--radius);
-  border: 1px solid rgba(255,255,255,0.65);
+  background: var(--paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 4px;
+  border: 1px solid rgba(107,93,77,0.12);
   padding: 16px;
   margin-bottom: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.9) inset;
+  box-shadow: 0 2px 6px rgba(74,64,53,0.08);
+  position: relative;
 }
-
-@media (prefers-color-scheme: dark) {
-  .card {
-    background: rgba(28,28,30,0.82);
-    border-color: rgba(255,255,255,0.10);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.28), 0 1px 0 rgba(255,255,255,0.06) inset;
-  }
+/* 膠帶裝飾 */
+.card::before {
+  content: '';
+  position: absolute;
+  top: -8px; left: 20px;
+  width: 60px; height: 16px;
+  background: rgba(182,137,106,0.50);
+  transform: rotate(-3deg);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  pointer-events: none;
+  z-index: 2;
+}
+.card::after {
+  content: '';
+  position: absolute;
+  top: -8px; right: 20px;
+  width: 50px; height: 14px;
+  background: rgba(122,140,90,0.40);
+  transform: rotate(4deg);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ─── Pages ─────────────────────────────────────────────────────────────── */
@@ -183,20 +182,25 @@ a { text-decoration: none; color: inherit; }
   width: 100%;
   max-width: 480px;
   display: flex;
-  background: rgba(250,250,255,0.82);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  backdrop-filter: blur(24px) saturate(200%);
-  border-top: 1px solid rgba(255,255,255,0.5);
+  background: var(--paper);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-top: 1px solid rgba(107,93,77,0.20);
   padding-bottom: var(--safe-bottom);
   z-index: 100;
-  box-shadow: 0 -1px 12px rgba(0,0,0,0.06);
+  box-shadow: 0 -4px 12px rgba(74,64,53,0.10);
+  overflow: visible;
 }
-
-@media (prefers-color-scheme: dark) {
-  .bottom-nav {
-    background: rgba(18,18,20,0.88);
-    border-top-color: rgba(255,255,255,0.08);
-  }
+/* 膠帶裝飾 */
+.bottom-nav::before {
+  content: '';
+  position: absolute;
+  top: -6px; left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 70px; height: 12px;
+  background: rgba(182,137,106,0.45);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .nav-item {
@@ -206,37 +210,51 @@ a { text-decoration: none; color: inherit; }
   align-items: center;
   padding: 10px 0 8px;
   gap: 2px;
-  color: var(--color-text-muted);
+  color: var(--muted);
   min-height: 56px;
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s;
 }
 
-.nav-item.active { color: var(--page-accent); }
-.nav-icon { font-size: 22px; line-height: 1; }
-.nav-label { font-size: 10px; font-weight: 500; }
+.nav-item.active { color: var(--berry); }
+.nav-item.active .nav-icon { color: var(--berry); }
+
+.nav-icon {
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink-soft);
+}
+
+.nav-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: inherit;
+}
 
 /* ─── Week Calendar ─────────────────────────────────────────────────────── */
 .week-calendar {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 12px 12px 10px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 16px;
+  box-shadow: none;
 }
 
 .week-calendar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .week-calendar-month,
 .week-month-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .week-calendar-nav {
@@ -247,13 +265,14 @@ a { text-decoration: none; color: inherit; }
 .week-nav-btn {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
-  background: var(--color-surface2);
+  border-radius: 4px;
+  background: var(--paper);
+  border: 1px solid rgba(107,93,77,0.15);
   font-size: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text);
+  color: var(--ink-soft);
 }
 
 .week-nav-btn:disabled { opacity: 0.3; }
@@ -264,59 +283,82 @@ a { text-decoration: none; color: inherit; }
   gap: 4px;
 }
 
+/* 個別日期格：小紙卡 */
 .week-day {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 0;
-  border-radius: 10px;
+  gap: 2px;
+  padding: 10px 2px 6px;
+  border-radius: 2px;
   -webkit-tap-highlight-color: transparent;
+  background: var(--paper);
+  border: 0.5px solid rgba(107,93,77,0.15);
+  box-shadow: 0 1px 2px rgba(74,64,53,0.10);
+  position: relative;
+}
+
+/* 圖釘小圓點 */
+.week-day::before {
+  content: '';
+  position: absolute;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  width: 4px; height: 4px;
+  background: var(--thread);
+  border-radius: 50%;
+  opacity: 0.3;
 }
 
 .week-day:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .week-day-label {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  font-weight: 500;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 4px;
 }
 
 .week-day-num {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 15px;
-  font-weight: 500;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--ink);
+  line-height: 1;
 }
 
-.week-day.today .week-day-num {
-  background: var(--color-primary);
-  color: white;
-  font-weight: 700;
+/* 今日格：深色便利貼 */
+.week-day.today {
+  background: var(--ink);
+  transform: rotate(-1.5deg);
+  box-shadow: 0 3px 6px rgba(74,64,53,0.25);
+  border-color: var(--ink);
 }
+.week-day.today::before { background: var(--honey); opacity: 1; }
+.week-day.today .week-day-label { color: rgba(248,243,230,0.7); }
+.week-day.today .week-day-num   { color: var(--paper); }
 
-.week-day.selected:not(.today) .week-day-num {
-  background: var(--color-surface2);
-  border: 2px solid var(--color-primary);
-  color: var(--color-primary);
+/* 選中格（非今日） */
+.week-day.selected:not(.today) {
+  border: 1.5px solid var(--thread);
+  background: rgba(182,137,106,0.08);
 }
+.week-day.selected:not(.today) .week-day-num { color: var(--thread); }
 
-/* .week-dot is the class used by WeekCalendar component */
+/* 有記錄的日期：Caveat ✓ */
 .week-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--page-accent);
+  font-family: 'Caveat', cursive;
+  font-size: 11px;
+  color: var(--leaf);
+  line-height: 1;
 }
+.week-dot::before { content: '✓'; }
 
-/* Invisible placeholder so button height stays consistent */
 .week-dot-spacer {
   width: 5px;
-  height: 5px;
+  height: 11px;
 }
 
 /* Legacy alias */
@@ -324,7 +366,7 @@ a { text-decoration: none; color: inherit; }
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--page-accent);
+  background: var(--leaf);
 }
 
 .week-today-btn {
@@ -332,38 +374,40 @@ a { text-decoration: none; color: inherit; }
   width: 100%;
   margin-top: 8px;
   padding: 6px;
-  border-radius: 8px;
-  background: var(--color-surface2);
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 500;
+  border-radius: 4px;
+  background: var(--linen-2);
+  color: var(--thread);
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
   text-align: center;
+  border: 1px solid rgba(107,93,77,0.15);
 }
 
 /* ─── Tab Switcher ──────────────────────────────────────────────────────── */
 .tab-switcher {
   display: flex;
-  background: var(--color-surface2);
-  border-radius: 10px;
+  background: var(--linen-2);
+  border-radius: 4px;
   padding: 3px;
   margin-bottom: 14px;
+  border: 1px solid rgba(107,93,77,0.12);
 }
 
 .tab-btn {
   flex: 1;
   padding: 7px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-muted);
+  border-radius: 3px;
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--muted);
   transition: all 0.18s;
   -webkit-tap-highlight-color: transparent;
 }
 
 .tab-btn.active {
-  background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(74,64,53,0.10);
 }
 
 /* ─── Quick Add Grid ────────────────────────────────────────────────────── */
@@ -780,134 +824,351 @@ select {
 
 .record-date-sub {
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--muted);
 }
 
-/* ─── Calorie Ring ──────────────────────────────────────────────────────── */
-.calorie-ring {
+.record-date-bar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  margin-bottom: 4px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.record-date-label {
+  font-family: 'Caveat', cursive;
+  font-size: 18px;
+  color: var(--ink-soft);
+}
+
+.btn-back-today {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--thread);
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(182,137,106,0.10);
+  border: 1px solid rgba(182,137,106,0.25);
+}
+
+/* ─── Linen Journal 頁首 ────────────────────────────────────────────────── */
+.journal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.journal-volume {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
+.journal-date {
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.journal-bookmark {
+  width: 20px;
+  height: 48px;
+  background: var(--berry);
+  margin-top: -22px;
   position: relative;
+  flex-shrink: 0;
+}
+
+.journal-bookmark::after {
+  content: '';
+  position: absolute;
+  bottom: -10px; left: 0;
+  border: 10px solid var(--berry);
+  border-bottom-color: transparent;
+}
+
+.journal-title-wrap {
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--muted);
+  position: relative;
+}
+
+.journal-title-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 40%;
+  width: 20%; height: 5px;
+  background: var(--linen);
+  border-left: 1px dashed var(--muted);
+  border-right: 1px dashed var(--muted);
+}
+
+.journal-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 0;
+}
+
+.journal-title em {
+  font-style: italic;
+  color: var(--leaf-deep);
+}
+
+.journal-hand {
+  font-family: 'Caveat', cursive;
+  color: var(--thread);
+  font-weight: 700;
+  font-size: 34px;
+  transform: rotate(-2deg);
+  display: inline-block;
+}
+
+.journal-sub {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+/* ─── Calorie Ring（Linen Journal 2 欄佈局）────────────────────────────── */
+.calorie-ring {
+  margin-bottom: 4px;
+}
+
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+}
+
+.cal-label {
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--leaf-deep);
+  transform: rotate(-1deg);
+  display: inline-block;
+}
+
+.cal-date {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.cal-layout {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.ring-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
 }
 
 .ring-track {
   fill: none;
-  stroke: var(--color-surface2);
-  stroke-width: 10;
+  stroke: rgba(107,93,77,0.15);
+  stroke-dasharray: 3 3;
 }
 
 .ring-progress {
   fill: none;
-  stroke-width: 10;
-  stroke-linecap: round;
   transition: stroke-dashoffset 0.5s ease;
 }
 
 .ring-center {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
 }
 
 .ring-net {
   display: block;
-  font-size: 26px;
-  font-weight: 700;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1;
 }
 
-.ring-label {
-  display: block;
+.ring-pct {
+  font-family: 'Caveat', cursive;
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* 右側數據列 */
+.cal-right {}
+
+.note-row {
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(107,93,77,0.25);
+}
+.note-row:last-child { border-bottom: none; }
+
+.note-lb {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--muted);
 }
 
-.ring-exercise {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-top: 4px;
+.note-vl {
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1.2;
 }
+.note-vl.good { color: var(--leaf-deep); }
+.note-vl.burn { color: var(--berry); }
 
-.calorie-stats-row {
-  display: flex;
-  justify-content: space-around;
-  padding: 10px 0 4px;
-  border-top: 1px solid var(--color-border);
-  margin-top: 8px;
-}
-
-.calorie-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.calorie-stat-val { font-size: 16px; font-weight: 600; }
-.calorie-stat-label { font-size: 11px; color: var(--color-text-muted); }
-
-/* ─── Macro Bars ────────────────────────────────────────────────────────── */
-.macro-bars {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* ─── Macro Cards（3 張微傾便箋卡）────────────────────────────────────── */
+.macro-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   padding: 4px 0 8px;
 }
 
-.macro-bar-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 4px;
-  color: var(--color-text-muted);
+.mc {
+  background: var(--paper);
+  padding: 10px 8px;
+  border: 1px solid rgba(107,93,77,0.12);
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(74,64,53,0.06);
 }
 
-.macro-bar-track {
-  height: 6px;
-  background: var(--color-surface2);
+.mc-p { transform: rotate(-0.8deg); }
+.mc-c { transform: rotate(0.5deg); }
+.mc-f { transform: rotate(-0.3deg); }
+
+.mc-name {
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.mc-en {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.mc-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 4px;
+  line-height: 1;
+}
+
+.mc-u {
+  font-family: 'Caveat', cursive;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mc-target {
+  font-family: 'Caveat', cursive;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.mc-bar {
+  margin-top: 6px;
+  height: 5px;
+  background: var(--linen-2);
   border-radius: 3px;
   overflow: hidden;
 }
 
-.macro-bar-fill {
+.mc-fill {
   height: 100%;
   border-radius: 3px;
   transition: width 0.4s ease;
 }
 
-/* ─── Fasting Indicator ─────────────────────────────────────────────────── */
+.mc-fill-leaf  { background: var(--leaf); }
+.mc-fill-honey { background: var(--honey); }
+.mc-fill-berry { background: var(--berry); }
+
+/* ─── Fasting Indicator（羊皮紙條）────────────────────────────────────── */
 .fasting-indicator {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  padding: 14px;
-  margin-bottom: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  background: linear-gradient(135deg, #e8dfc5 0%, #ded3b5 100%);
+  border-radius: 0;
+  padding: 14px 26px;
+  margin-bottom: 14px;
+  box-shadow: inset 0 0 20px rgba(155,143,125,0.2);
+  border: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.fasting-indicator.fasting { border-left: 3px solid #818cf8; }
-.fasting-indicator.eating { border-left: 3px solid var(--color-success); }
+/* 撕邊效果 */
+.fasting-indicator::before,
+.fasting-indicator::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 8px;
+  background: radial-gradient(circle at 100% 50%, transparent 3px, var(--linen) 3px, var(--linen) 4px, transparent 4px) 0 0/8px 10px;
+}
+.fasting-indicator::before { left: 0; }
+.fasting-indicator::after  { right: 0; transform: scaleX(-1); }
 
 .fasting-label {
   display: flex;
   justify-content: space-between;
-  font-weight: 600;
-  margin-bottom: 8px;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.fasting-label > span:first-child {
+  font-family: 'Caveat', cursive;
+  font-size: 20px;
+  color: var(--leaf-deep);
+  line-height: 1.2;
 }
 
 .fasting-mode {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: var(--muted);
   font-weight: 400;
 }
 
 .fasting-bar-track {
   height: 6px;
-  background: var(--color-surface2);
+  background: rgba(107,93,77,0.15);
   border-radius: 3px;
   overflow: hidden;
-  margin-bottom: 6px;
+  margin-bottom: 0;
 }
 
 .fasting-bar-fill {
@@ -916,10 +1177,14 @@ select {
   transition: width 1s ease;
 }
 
-.fasting-indicator.fasting .fasting-bar-fill { background: #818cf8; }
-.fasting-indicator.eating .fasting-bar-fill { background: var(--color-success); }
+.fasting-indicator.fasting .fasting-bar-fill { background: var(--leaf); }
+.fasting-indicator.eating  .fasting-bar-fill { background: var(--honey); }
 
-.fasting-remaining { font-size: 13px; color: var(--color-text-muted); }
+.fasting-remaining {
+  font-family: 'Caveat', cursive;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
 
 /* ─── Exercise Row ──────────────────────────────────────────────────────── */
 .exercise-row {
@@ -957,10 +1222,40 @@ select {
 .daily-notes-area:focus { border-color: var(--color-primary); }
 
 /* ─── Meal Section ──────────────────────────────────────────────────────── */
-.meals { display: flex; flex-direction: column; gap: 10px; }
+
+/* meals-header：「meals today — in four acts」標題列 */
+.meals-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.meals-title-jp {
+  font-family: 'Caveat', cursive;
+  font-size: 26px;
+  color: var(--ink);
+  font-weight: 700;
+  transform: rotate(-1deg);
+  display: inline-block;
+}
+.meals-title-en {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 羅馬數字 counter */
+.meals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  counter-reset: meal-counter;
+}
 
 .meal-section {
   overflow: hidden;
+  counter-increment: meal-counter;
 }
 
 .meal-header {
@@ -968,20 +1263,47 @@ select {
   display: flex;
   align-items: center;
   padding: 4px 0 10px;
-  gap: 8px;
+  gap: 4px;
   background: none;
   -webkit-tap-highlight-color: transparent;
 }
 
-.meal-title { flex: 1; font-weight: 600; font-size: 15px; text-align: left; }
-.meal-total { font-size: 14px; color: var(--color-text-muted); }
-.meal-chevron { font-size: 11px; color: var(--color-text-muted); margin-left: 4px; }
+/* 羅馬數字裝飾 */
+.meal-header::before {
+  content: counter(meal-counter, lower-roman) ".";
+  font-family: 'Caveat', cursive;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--thread);
+  transform: rotate(-3deg);
+  display: inline-block;
+  line-height: 1;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.meal-title {
+  flex: 1;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500;
+  font-size: 18px;
+  text-align: left;
+  color: var(--ink);
+}
+.meal-total {
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--muted);
+}
+.meal-chevron { font-size: 11px; color: var(--muted); margin-left: 4px; }
 
 .meal-body { padding: 0; }
 
 .empty-meal {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: var(--muted);
   padding: 6px 0;
 }
 
@@ -1024,7 +1346,7 @@ select {
   align-items: center;
   gap: 10px;
   padding: 10px 0;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px dashed rgba(107,93,77,0.25);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1048,14 +1370,21 @@ select {
 }
 
 .food-name {
-  font-size: 15px;
+  font-family: 'Caveat', cursive;
+  font-size: 17px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--ink);
 }
 
-.food-macros { font-size: 12px; color: var(--color-text-muted); }
+.food-macros {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: var(--muted);
+}
 
 .food-entry-right {
   display: flex;
@@ -1119,12 +1448,13 @@ select {
   flex: 1;
   min-width: 100px;
   padding: 8px 12px;
-  border: 1.5px dashed var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--page-accent);
+  border: 1.5px dashed rgba(182,137,106,0.5);
+  border-radius: 4px;
+  color: var(--thread);
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
   font-weight: 500;
-  background: none;
-  font-size: 14px;
+  background: rgba(182,137,106,0.06);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -1180,40 +1510,61 @@ select {
 /* ─── Water Tracker ─────────────────────────────────────────────────────── */
 .water-tracker {}
 
-.water-tracker-header {
+.water-header {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.water-tracker-title {
+.water-title {
+  font-family: 'Caveat', cursive;
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.water-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.water-goal {
+  font-family: 'Caveat', cursive;
   font-size: 15px;
-  font-weight: 600;
+  color: var(--muted);
 }
 
-.water-tracker-amount {
-  font-size: 14px;
-  color: var(--color-primary);
-  font-weight: 600;
+/* 8 水滴 SVG 列 */
+.water-drops-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+  margin-bottom: 12px;
 }
 
-.water-progress-track {
-  height: 8px;
-  background: var(--color-surface2);
-  border-radius: 4px;
+.drop { aspect-ratio: 0.8 / 1; }
+.drop svg { width: 100%; height: 100%; display: block; }
+.drop-out { fill: none; stroke: var(--muted); stroke-width: 1.2; }
+.drop.on .drop-in  { fill: var(--thread); }
+.drop.on .drop-out { stroke: var(--thread); }
+
+.water-bar-track {
+  height: 6px;
+  background: var(--linen-2);
+  border-radius: 3px;
   overflow: hidden;
   margin-bottom: 12px;
 }
 
-.water-progress-fill {
+.water-bar-fill {
   height: 100%;
-  background: var(--color-blue);
-  border-radius: 4px;
+  border-radius: 3px;
   transition: width 0.4s ease;
 }
 
-.water-buttons {
+.water-quick-btns {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -1222,21 +1573,24 @@ select {
 .water-btn {
   padding: 7px 12px;
   border-radius: 20px;
-  background: rgba(0,122,255,0.1);
-  color: var(--color-blue);
-  font-size: 14px;
-  font-weight: 500;
-  border: 1px solid rgba(0,122,255,0.2);
+  background: rgba(182,137,106,0.10);
+  color: var(--thread);
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  border: 1px solid rgba(182,137,106,0.25);
 }
 
-.water-custom-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
+.water-custom-input {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 20px;
+  background: var(--linen-2);
+  border: 1px solid rgba(107,93,77,0.15);
+  font-family: 'Caveat', cursive;
+  font-size: 16px;
+  color: var(--ink);
+  min-width: 60px;
 }
-
-.water-custom-row .input-unit { flex: 1; }
-.water-custom-row .btn-secondary { padding: 8px 14px; }
 
 /* ─── Recent Foods ──────────────────────────────────────────────────────── */
 .recent-foods-section { margin-bottom: 16px; }

@@ -15,6 +15,17 @@ const MEAL_ORDER: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks']
 
 type Tab = 'food' | 'body'
 
+function formatJournalDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00')
+  const month = d.toLocaleString('en-US', { month: 'long' })
+  const day = d.getDate()
+  const weekday = d.toLocaleString('en-US', { weekday: 'short' })
+  const suffix = day === 1 || day === 21 || day === 31 ? 'st'
+    : day === 2 || day === 22 ? 'nd'
+    : day === 3 || day === 23 ? 'rd' : 'th'
+  return `${month} ${day}${suffix}, ${weekday}.`
+}
+
 export default function RecordPage() {
   const profile = useAppStore(s => s.profile)
   const days = useAppStore(s => s.days)
@@ -39,6 +50,19 @@ export default function RecordPage() {
 
   return (
     <div className="page record-page">
+      {/* Linen Journal 頁首 */}
+      <div className="journal-top">
+        <div className="journal-top-l">
+          <div className="journal-volume">Journal · {selectedDate.slice(0, 7)}</div>
+          <div className="journal-date">{formatJournalDate(selectedDate)}</div>
+        </div>
+        <div className="journal-bookmark" aria-hidden="true" />
+      </div>
+      <div className="journal-title-wrap">
+        <h2 className="journal-title">today's <em>little</em><br /><span className="journal-hand">plate notes</span></h2>
+        <div className="journal-sub">— what I ate, what I didn't skip —</div>
+      </div>
+
       {/* Week Calendar */}
       <WeekCalendar
         selectedDate={selectedDate}
@@ -98,6 +122,10 @@ export default function RecordPage() {
           <DailyNotes date={selectedDate} notes={log.notes} />
 
           {/* Meal sections */}
+          <div className="meals-header">
+            <span className="meals-title-jp">meals today</span>
+            <span className="meals-title-en">— in four acts</span>
+          </div>
           <div className="meals">
             {MEAL_ORDER.map(meal => (
               <MealSection
