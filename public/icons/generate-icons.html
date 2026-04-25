@@ -1,25 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>DietTrack Icon Generator</title>
+<title>Linen Journal Icon Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Cormorant+Garamond:ital,wght@1,500&display=swap" rel="stylesheet">
 <style>
-  body { font-family: -apple-system, sans-serif; padding: 24px; background: #f0f0f5; color: #1c1c1e; }
-  h2 { margin-bottom: 6px; }
-  p  { color: #6e6e73; margin-bottom: 18px; font-size: 14px; }
+  body { font-family: -apple-system, sans-serif; padding: 24px; background: #d8ceb8; color: #4a4035; }
+  h2 { margin-bottom: 6px; font-family: Georgia, serif; }
+  p  { color: #6b5d4d; margin-bottom: 18px; font-size: 14px; }
   .canvases { display: flex; gap: 16px; align-items: flex-end; margin: 20px 0; flex-wrap: wrap; }
-  .canvas-wrap label { display: block; font-size: 11px; color: #888; margin-bottom: 6px; font-weight: 500; }
+  .canvas-wrap label { display: block; font-size: 11px; color: #6b5d4d; margin-bottom: 6px; font-weight: 500; }
   canvas { border-radius: 22%; box-shadow: 0 6px 24px rgba(0,0,0,0.22); display: block; }
-  button { padding: 12px 32px; font-size: 15px; background: #0A9880; color: white;
+  button { padding: 12px 32px; font-size: 15px; background: #b6896a; color: white;
     border: none; border-radius: 12px; cursor: pointer; font-weight: 600; letter-spacing: -0.2px; }
   #links { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-  #links a { padding: 9px 18px; background: white; border-radius: 10px; color: #1c1c1e;
+  #links a { padding: 9px 18px; background: #f8f3e6; border-radius: 10px; color: #4a4035;
     text-decoration: none; font-size: 13px; font-weight: 500;
     box-shadow: 0 1px 6px rgba(0,0,0,0.10); }
+  .note { margin-top: 14px; font-size: 12px; color: #9b8f7d; }
 </style>
 </head>
 <body>
-<h2>DietTrack Icon Generator</h2>
-<p>點擊生成後，下載三個 PNG 並覆蓋 <code>public/icons/</code> 內的舊檔，再 commit push。</p>
+<h2>Linen Journal — Icon Generator</h2>
+<p>點擊生成後，下載三個 PNG 並覆蓋 <code>public/icons/</code> 內的舊檔，再 commit push。<br>
+   此版本使用 Google Fonts，需要網路連線才能正確渲染字型。</p>
 
 <div class="canvases">
   <div class="canvas-wrap"><label>192 × 192</label>
@@ -32,130 +37,112 @@
 
 <button onclick="generate()">生成並下載圖示</button>
 <div id="links"></div>
+<p class="note">* 若字型未正確顯示，請稍等幾秒後再點生成。</p>
 
 <script>
-function drawIcon(canvas) {
+async function drawIcon(canvas) {
   const ctx = canvas.getContext('2d');
   const s   = canvas.width;
-  const sc  = s / 512;
+  const sc  = s / 180;
 
-  // ── 1. Background (clipped) ────────────────────────────────────────────
+  // 1. Clip to rounded rect
   ctx.save();
   ctx.beginPath();
-  ctx.roundRect(0, 0, s, s, s * 0.225);
+  ctx.roundRect(0, 0, s, s, 40 * sc);
   ctx.clip();
 
-  // Deep teal gradient
-  const bg = ctx.createLinearGradient(0, 0, s * 0.6, s);
-  bg.addColorStop(0,    '#15A392');
-  bg.addColorStop(0.55, '#0A6B60');
-  bg.addColorStop(1,    '#043030');
+  // 2. Paper gradient background
+  const bg = ctx.createLinearGradient(0, 0, s, s);
+  bg.addColorStop(0, '#f8f3e6');
+  bg.addColorStop(1, '#ede2c9');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, s, s);
 
-  // Glossy top highlight
-  const gloss = ctx.createRadialGradient(s * 0.5, 0, 0, s * 0.5, s * 0.5, s * 0.72);
-  gloss.addColorStop(0,    'rgba(255,255,255,0.30)');
-  gloss.addColorStop(0.35, 'rgba(255,255,255,0.07)');
-  gloss.addColorStop(1,    'rgba(0,0,0,0)');
-  ctx.fillStyle = gloss;
-  ctx.fillRect(0, 0, s, s);
+  // 3. Grid lines
+  ctx.strokeStyle = 'rgba(107,93,77,0.08)';
+  ctx.lineWidth = 0.5 * sc;
+  for (let i = 30; i < 180; i += 30) {
+    ctx.beginPath(); ctx.moveTo(0, i * sc); ctx.lineTo(s, i * sc); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i * sc, 0); ctx.lineTo(i * sc, s); ctx.stroke();
+  }
 
-  // Subtle dark vignette at bottom
-  const vig = ctx.createRadialGradient(s*0.5, s*0.5, s*0.3, s*0.5, s*0.5, s*0.72);
-  vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.16)');
-  ctx.fillStyle = vig;
-  ctx.fillRect(0, 0, s, s);
-
+  // 4. Top-left tape (brown, rotate -8deg around its center 35,28)
+  ctx.save();
+  ctx.translate(35 * sc, 28 * sc);
+  ctx.rotate(-8 * Math.PI / 180);
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = '#b6896a';
+  ctx.fillRect(-40 * sc, -7 * sc, 70 * sc, 14 * sc);
+  ctx.globalAlpha = 1;
   ctx.restore();
 
-  // ── 2. Fork tines ──────────────────────────────────────────────────────
-  const tineXs  = [230 * sc, 256 * sc, 282 * sc];
-  const tineTop = 62  * sc;
-  const tineBot = 202 * sc;
-  const tineW   = 15  * sc;
+  // 5. Bottom-right tape (green, rotate 6deg around its center 145,155)
+  ctx.save();
+  ctx.translate(145 * sc, 155 * sc);
+  ctx.rotate(6 * Math.PI / 180);
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = '#7a8c5a';
+  ctx.fillRect(-30 * sc, -6 * sc, 60 * sc, 12 * sc);
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
-  ctx.shadowColor  = 'rgba(255,255,255,0.45)';
-  ctx.shadowBlur   = 9 * sc;
-  ctx.strokeStyle  = 'rgba(255,255,255,0.97)';
-  ctx.lineWidth    = tineW;
-  ctx.lineCap      = 'round';
+  // 6. Large "J" letter — Cormorant Garamond italic
+  ctx.font = `italic 500 ${108 * sc}px 'Cormorant Garamond', Georgia, serif`;
+  ctx.fillStyle = '#5a6e42';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('J', 88 * sc, 98 * sc);
 
-  for (const tx of tineXs) {
-    ctx.beginPath();
-    ctx.moveTo(tx, tineTop);
-    ctx.lineTo(tx, tineBot);
-    ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
-
-  // ── 3. Leaf body ───────────────────────────────────────────────────────
-  const lx   = 256 * sc;
-  const ltop = 188 * sc;   // connects to tine base (slight overlap)
-  const lbot = 450 * sc;   // leaf tip / handle end
-  const lw   = 116 * sc;   // half-width at widest
-
-  ctx.shadowColor   = 'rgba(2,30,30,0.28)';
-  ctx.shadowBlur    = 18 * sc;
-  ctx.shadowOffsetY = 7  * sc;
-
-  ctx.fillStyle = 'rgba(255,255,255,0.97)';
+  // 7. Smile-curve bowl (plate)
+  ctx.strokeStyle = '#4a4035';
+  ctx.lineWidth = 4 * sc;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(lx, ltop);
-  // Right side: shoulder out, then taper to bottom point
-  ctx.bezierCurveTo(
-    lx + lw * 0.85, ltop + (lbot - ltop) * 0.20,
-    lx + lw,        ltop + (lbot - ltop) * 0.50,
-    lx,             lbot
-  );
-  // Left side (mirror)
-  ctx.bezierCurveTo(
-    lx - lw,        ltop + (lbot - ltop) * 0.50,
-    lx - lw * 0.85, ltop + (lbot - ltop) * 0.20,
-    lx,             ltop
-  );
-  ctx.fill();
-
-  ctx.shadowBlur    = 0;
-  ctx.shadowOffsetY = 0;
-
-  // ── 4. Midrib (teal, creates fork-handle + leaf-vein visual) ──────────
-  ctx.strokeStyle = 'rgba(4,48,48,0.42)';
-  ctx.lineWidth   = 8 * sc;
-  ctx.lineCap     = 'round';
-  ctx.beginPath();
-  ctx.moveTo(lx, ltop + 8  * sc);
-  ctx.lineTo(lx, lbot - 10 * sc);
+  ctx.moveTo(50 * sc, 112 * sc);
+  ctx.quadraticCurveTo(90 * sc, 148 * sc, 130 * sc, 112 * sc);
   ctx.stroke();
 
-  // ── 5. Leaf veins (3 pairs) ────────────────────────────────────────────
-  ctx.lineWidth   = 5 * sc;
-  ctx.strokeStyle = 'rgba(4,48,48,0.22)';
-  const lh   = lbot - ltop;
-  const veins = [
-    { fy: 0.24, fw: 0.72 },
-    { fy: 0.46, fw: 0.88 },
-    { fy: 0.64, fw: 0.64 },
-  ];
+  // 8. Dashed ellipse below bowl
+  ctx.strokeStyle = 'rgba(74,64,53,0.5)';
+  ctx.lineWidth = 1.5 * sc;
+  ctx.setLineDash([2 * sc, 2 * sc]);
+  ctx.beginPath();
+  ctx.ellipse(90 * sc, 112 * sc, 40 * sc, 4 * sc, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-  for (const v of veins) {
-    const vy = ltop + v.fy * lh;
-    const vx = lw   * v.fw;
-    // right vein
-    ctx.beginPath();
-    ctx.moveTo(lx, vy);
-    ctx.quadraticCurveTo(lx + vx * 0.55, vy - lh * 0.04, lx + vx, vy + lh * 0.02);
-    ctx.stroke();
-    // left vein (mirror)
-    ctx.beginPath();
-    ctx.moveTo(lx, vy);
-    ctx.quadraticCurveTo(lx - vx * 0.55, vy - lh * 0.04, lx - vx, vy + lh * 0.02);
-    ctx.stroke();
-  }
+  // 9. Accent dots
+  ctx.fillStyle = '#b55a5a';
+  ctx.beginPath(); ctx.arc(42 * sc, 50 * sc, 5 * sc, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#d9a85a';
+  ctx.beginPath(); ctx.arc(145 * sc, 75 * sc, 3 * sc, 0, Math.PI * 2); ctx.fill();
+
+  // 10. "— today —" label — Caveat bold
+  ctx.save();
+  ctx.translate(90 * sc, 138 * sc);
+  ctx.rotate(-2 * Math.PI / 180);
+  ctx.font = `700 ${13 * sc}px 'Caveat', cursive`;
+  ctx.fillStyle = '#b6896a';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('— today —', 0, 0);
+  ctx.restore();
+
+  // 11. Dashed inner border rect
+  ctx.strokeStyle = 'rgba(155,143,125,0.3)';
+  ctx.lineWidth = 0.8 * sc;
+  ctx.setLineDash([3 * sc, 3 * sc]);
+  ctx.beginPath();
+  ctx.roundRect(8 * sc, 8 * sc, 164 * sc, 164 * sc, 32 * sc);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore(); // end rounded-rect clip
 }
 
-function generate() {
+async function generate() {
+  await document.fonts.ready;
+
   const configs = [
     { id: 'c192', name: 'icon-192x192.png'    },
     { id: 'c512', name: 'icon-512x512.png'    },
@@ -166,7 +153,8 @@ function generate() {
 
   for (const { id, name } of configs) {
     const canvas = document.getElementById(id);
-    drawIcon(canvas);
+    ctx_clear(canvas);
+    await drawIcon(canvas);
     const a = document.createElement('a');
     a.href      = canvas.toDataURL('image/png');
     a.download  = name;
@@ -175,8 +163,12 @@ function generate() {
   }
 }
 
-// Auto-preview on load
-window.addEventListener('load', generate);
+function ctx_clear(canvas) {
+  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// Auto-preview on load (after fonts ready)
+document.fonts.ready.then(generate);
 </script>
 </body>
 </html>
