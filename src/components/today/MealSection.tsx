@@ -2,12 +2,21 @@ import { useState, useRef } from 'react'
 import type { FoodEntry, MealType, MealTemplate } from '../../types'
 import { useAppStore } from '../../store/appStore'
 import AddFoodModal from './AddFoodModal'
+import { BreakfastIcon, LunchIcon, DinnerIcon, SnackIcon, EditIcon, DeleteIcon } from '../icons/LinenIcons'
+import type { ComponentType } from 'react'
 
-const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: '🍳 早餐',
-  lunch: '🍱 午餐',
-  dinner: '🍜 晚餐',
-  snacks: '🧋 點心 & 飲料',
+const MEAL_NAMES: Record<MealType, string> = {
+  breakfast: '早餐',
+  lunch: '午餐',
+  dinner: '晚餐',
+  snacks: '點心 & 飲料',
+}
+
+const MEAL_ICONS: Record<MealType, ComponentType<{ size?: number }>> = {
+  breakfast: BreakfastIcon,
+  lunch: LunchIcon,
+  dinner: DinnerIcon,
+  snacks: SnackIcon,
 }
 
 interface Props {
@@ -151,7 +160,7 @@ export default function MealSection({ meal, entries, date }: Props) {
         ))}
         <div className="food-detail-edit-row">
           <button className="btn-edit-food" onClick={() => handleOpenEdit(entry)}>
-            ✏️ 編輯
+            <EditIcon size={15} /> 編輯
           </button>
         </div>
       </div>
@@ -161,7 +170,10 @@ export default function MealSection({ meal, entries, date }: Props) {
   return (
     <div className="meal-section card">
       <button className="meal-header" onClick={() => setOpen(o => !o)}>
-        <span className="meal-title">{MEAL_LABELS[meal]}</span>
+        <span className="meal-title">
+          {(() => { const MealIcon = MEAL_ICONS[meal]; return <MealIcon size={20} /> })()}
+          {MEAL_NAMES[meal]}
+        </span>
         <span className="meal-total">{total > 0 ? `${total} kcal` : ''}</span>
         <span className="meal-chevron">{open ? '▲' : '▼'}</span>
       </button>
@@ -183,7 +195,7 @@ export default function MealSection({ meal, entries, date }: Props) {
                   onClick={() => confirmDelete(entry.id)}
                   aria-label="刪除"
                 >
-                  <span style={{ fontSize: 18 }}>🗑</span>
+                  <DeleteIcon size={18} />
                   <span>刪除</span>
                 </button>
                 <div

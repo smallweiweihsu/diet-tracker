@@ -33,17 +33,15 @@ export default function WaterTracker({ date, waterMl }: Props) {
         </span>
       </div>
 
-      {/* 8 水滴 SVG 視覺指示（每滴 = 250ml）*/}
       <div className="water-drops-row">
         {Array.from({ length: 8 }).map((_, i) => {
           const filled = waterMl >= (i + 1) * DROP_UNIT
           return (
             <div key={i} className={`drop${filled ? ' on' : ''}`}>
-              <svg viewBox="0 0 24 32">
-                <path
-                  className={`drop-out${filled ? ' drop-in' : ''}`}
-                  d="M12 2 C12 12, 22 18, 22 24 A10 10 0 0 1 2 24 C2 18, 12 12, 12 2 Z"
-                />
+              <svg viewBox="0 0 64 64" aria-hidden="true">
+                <path className="drop-body" d="M 32 10 C 32 24, 48 30, 48 42 A 16 16 0 0 1 16 42 C 16 30, 32 24, 32 10 Z"/>
+                <path className="drop-fill" d="M 16 42 A 16 16 0 0 0 48 42 C 48 38, 40 38, 32 38 C 24 38, 16 38, 16 42 Z"/>
+                <path className="drop-shine" d="M 26 20 Q 22 26, 22 32" strokeLinecap="round"/>
               </svg>
             </div>
           )

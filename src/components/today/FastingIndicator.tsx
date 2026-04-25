@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from '../../store/appStore'
 import { fastingWindow } from '../../utils/dateHelpers'
+import { FastingIcon } from '../icons/LinenIcons'
 
 export default function FastingIndicator() {
   const fasting = useAppStore(s => s.fasting)
@@ -65,7 +66,7 @@ export default function FastingIndicator() {
   return (
     <div className={`fasting-indicator ${inFast ? 'fasting' : 'eating'}`}>
       <div className="fasting-label">
-        <span>{inFast ? '🌙 斷食中' : '🍽️ 進食窗口'}</span>
+        <span>{inFast ? <><FastingIcon size={18} /> 斷食中</> : '🍽️ 進食窗口'}</span>
         <span className="fasting-mode">{fasting.fastingHours}/{fasting.eatingHours}</span>
       </div>
       <div className="fasting-bar-track">

@@ -1,10 +1,19 @@
 import { NavLink } from 'react-router-dom'
+import type { ReactNode } from 'react'
+import { TodayIcon, StatsIcon, WeightIcon, ProfileIcon } from '../icons/LinenIcons'
 
-const NAV_ITEMS = [
-  { to: '/record', label: '記錄', icon: '📋', end: false },
-  { to: '/stats', label: '統計', icon: '📊', end: false },
-  { to: '/weight', label: '體重', icon: '⚖️', end: false },
-  { to: '/profile', label: '我的', icon: '👤', end: false },
+interface NavItem {
+  to: string
+  label: string
+  icon: ReactNode
+  end: boolean
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { to: '/record', label: '記錄', icon: <TodayIcon size={26} />, end: false },
+  { to: '/stats', label: '統計', icon: <StatsIcon size={26} />, end: false },
+  { to: '/weight', label: '體重', icon: <WeightIcon size={26} />, end: false },
+  { to: '/profile', label: '我的', icon: <ProfileIcon size={26} />, end: false },
 ]
 
 export default function BottomNav() {

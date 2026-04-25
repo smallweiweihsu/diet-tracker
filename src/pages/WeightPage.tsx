@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAppStore } from '../store/appStore'
+import { DeleteIcon } from '../components/icons/LinenIcons'
 import { todayStr } from '../utils/dateHelpers'
 import { computeStreak } from '../store/appStore'
 import WeekCalendar from '../components/record/WeekCalendar'
@@ -59,7 +60,7 @@ export default function WeightPage() {
                   onClick={() => removeWeight(w.date)}
                   aria-label="刪除"
                 >
-                  🗑
+                  <DeleteIcon size={18} />
                 </button>
               </div>
             ))}

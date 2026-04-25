@@ -1,4 +1,5 @@
 import { useAppStore } from '../../store/appStore'
+import { DeleteIcon } from '../icons/LinenIcons'
 
 export default function MealTemplateManager() {
   const templates = useAppStore(s => s.mealTemplates)
@@ -18,7 +19,7 @@ export default function MealTemplateManager() {
         <div key={t.id} className="card template-item">
           <div className="template-header">
             <span className="template-name">{t.name}</span>
-            <button className="btn-icon danger" onClick={() => deleteTemplate(t.id)}>🗑</button>
+            <button className="btn-icon danger" onClick={() => deleteTemplate(t.id)}><DeleteIcon size={18} /></button>
           </div>
           <div className="template-items-list">
             {t.items.map((item, i) => (
