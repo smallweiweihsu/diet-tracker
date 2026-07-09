@@ -1,4 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
+import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
@@ -17,8 +17,12 @@ import {
   upsertUserGoals,
 } from "./db";
 import { getSessionCookieOptions } from "./_core/cookies";
-import { invokeLLM } from "./_core/llm";
-import { storagePut } from "./storage";
+import {
+  isPasswordRequired,
+  signSessionToken,
+  verifyPassword,
+} from "./_core/auth";
+import { analyzeFoodImage } from "./ai";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -44,6 +48,25 @@ export const appRouter = router({
 
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+
+    // Whether the client must show the password gate before using the app.
+    config: publicProcedure.query(() => ({
+      passwordRequired: isPasswordRequired(),
+    })),
+
+    login: publicProcedure
+      .input(z.object({ password: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!isPasswordRequired()) return { success: true } as const;
+        if (!verifyPassword(input.password)) {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "密碼錯誤" });
+        }
+        const token = await signSessionToken();
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true } as const;
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -155,81 +178,9 @@ export const appRouter = router({
           mimeType: z.string().default("image/jpeg"),
         })
       )
-      .mutation(async ({ ctx, input }) => {
-        // Upload image to storage
-        const buffer = Buffer.from(input.imageBase64, "base64");
-        const fileKey = `food-images/${ctx.user.id}-${Date.now()}.jpg`;
-        const { url: imageUrl } = await storagePut(fileKey, buffer, input.mimeType);
-
-        // Call LLM vision API
-        const dataUrl = `data:${input.mimeType};base64,${input.imageBase64}`;
-        const response = await invokeLLM({
-          messages: [
-            {
-              role: "system",
-              content:
-                "你是一位專業的營養師，請分析食物圖片並以 JSON 格式回傳營養資訊。只回傳 JSON，不要有其他文字。",
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "image_url",
-                  image_url: { url: dataUrl, detail: "high" },
-                },
-                {
-                  type: "text",
-                  text: "請分析這張食物圖片，辨識所有食物，估算份量與營養成分。",
-                },
-              ],
-            },
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "food_analysis",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  foods: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string", description: "食物名稱（繁體中文）" },
-                        quantity: { type: "number", description: "份量數值" },
-                        unit: { type: "string", description: "單位，如 g、ml、份、個" },
-                        calories: { type: "number", description: "卡路里（kcal）" },
-                        proteinG: { type: "number", description: "蛋白質（g）" },
-                        carbsG: { type: "number", description: "碳水化合物（g）" },
-                        fatG: { type: "number", description: "脂肪（g）" },
-                      },
-                      required: ["name", "quantity", "unit", "calories", "proteinG", "carbsG", "fatG"],
-                      additionalProperties: false,
-                    },
-                  },
-                  description: { type: "string", description: "整體食物描述" },
-                },
-                required: ["foods", "description"],
-                additionalProperties: false,
-              },
-            },
-          },
-        });
-
-        const content = response.choices[0]?.message?.content ?? "{}";
-        let parsed: { foods: Array<{ name: string; quantity: number; unit: string; calories: number; proteinG: number; carbsG: number; fatG: number }>; description: string };
-        try {
-          parsed = typeof content === "string" ? JSON.parse(content) : content;
-        } catch {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "AI 分析結果解析失敗，請重試",
-          });
-        }
-
-        return { ...parsed, imageUrl };
+      .mutation(async ({ input }) => {
+        const result = await analyzeFoodImage(input.imageBase64, input.mimeType);
+        return { ...result, imageUrl: "" };
       }),
   }),
 

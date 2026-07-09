@@ -3,7 +3,6 @@ import { Camera, ChevronRight, Scale, Flame, Droplets, Beef, Wheat } from "lucid
 import { trpc } from "@/lib/trpc";
 import { cn, formatNum, MEAL_LABELS, MEAL_ICONS, dayStartMs } from "@/lib/utils";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { startLogin } from "@/const";
 import { toast } from "sonner";
 import WeightModal from "@/components/WeightModal";
 import CameraModal from "@/components/CameraModal";
@@ -106,7 +105,8 @@ function MealCard({ meal, calories, foods, onCamera }: {
 }
 
 export default function Dashboard() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading, login, loginPending } = useAuth();
+  const [password, setPassword] = useState("");
   const [showWeight, setShowWeight] = useState(false);
   const [cameraForMeal, setCameraForMeal] = useState<string | null>(null);
   const [todayMs] = useState(() => dayStartMs(Date.now()));
@@ -138,6 +138,15 @@ export default function Dashboard() {
   });
 
   if (!isAuthenticated) {
+    if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-dvh">
+          <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
+            <Flame size={36} className="text-primary" />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col items-center justify-center min-h-dvh gap-4 px-6">
         <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
@@ -145,12 +154,34 @@ export default function Dashboard() {
         </div>
         <h1 className="text-2xl font-bold text-foreground text-center">Diet Tracker</h1>
         <p className="text-muted-foreground text-center text-sm">記錄飲食、追蹤運動、達成健康目標</p>
-        <button
-          onClick={() => startLogin()}
-          className="btn-pill bg-primary text-primary-foreground px-8 py-3 text-base font-semibold mt-2 shadow-md shadow-primary/30"
+        <form
+          className="w-full max-w-xs flex flex-col gap-3 mt-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await login(password);
+            } catch {
+              toast.error("密碼錯誤，請重試");
+            }
+          }}
         >
-          登入開始使用
-        </button>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="請輸入密碼"
+            autoFocus
+            className="w-full h-12 rounded-2xl border border-border bg-card px-4 text-foreground text-center
+                       placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          />
+          <button
+            type="submit"
+            disabled={!password || loginPending}
+            className="btn-pill bg-primary text-primary-foreground px-8 py-3 text-base font-semibold shadow-md shadow-primary/30 disabled:opacity-50"
+          >
+            {loginPending ? "登入中..." : "登入開始使用"}
+          </button>
+        </form>
       </div>
     );
   }

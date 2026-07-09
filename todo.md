@@ -38,3 +38,10 @@
 - [x] 新增 stats.exportAll API 並實作個人設定頁 CSV 匯出（含 UTF-8 BOM）
 - [x] 移除未使用的模板頁面（Home、ComponentShowcase）
 - [x] 補上 dayRange 與 stats.range 測試（19 個測試全數通過）
+
+## 去 Manus 化（2026-07，獨立部署版）
+- [x] 登入改為單一使用者 + 選用 APP_PASSWORD 密碼保護（取代 Manus OAuth）
+- [x] AI 拍照辨識改用 Anthropic 官方 SDK（ANTHROPIC_API_KEY 自備）
+- [x] 移除 Manus 專屬模組（oauth/sdk/storage/notification/llm/map 等）與執行環境外掛
+- [x] 新增 README、.env.example、Dockerfile，可部署至任何 Node.js 平台
+- [x] 24 個測試全數通過、型別檢查與建置成功
