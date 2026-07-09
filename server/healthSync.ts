@@ -64,21 +64,33 @@ interface IncomingWorkout {
   start?: unknown;
 }
 
-function tokenMatches(header: string | undefined, expected: string): boolean {
-  if (!header?.startsWith("Bearer ")) return false;
-  const got = Buffer.from(header.slice(7));
-  const want = Buffer.from(expected);
-  return got.length === want.length && timingSafeEqual(got, want);
+function safeEqual(a: string, b: string): boolean {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+}
+
+function tokenMatches(req: Request, expected: string): boolean {
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ") && safeEqual(header.slice(7), expected)) return true;
+  const q = req.query.token;
+  return typeof q === "string" && safeEqual(q, expected);
+}
+
+// iOS Shortcuts inserts "+08:00" as " 08:00" when a date lands in a query
+// string — restore the timezone sign before parsing.
+function fixQueryDate(value: string): string {
+  return value.replace(/ (\d{2}:?\d{2})$/, "+$1");
 }
 
 export function registerHealthSync(app: Express) {
-  app.post("/api/health/sync", async (req: Request, res: Response) => {
+  const handler = async (req: Request, res: Response) => {
     const token = process.env.HEALTH_SYNC_TOKEN ?? "";
     if (!token) {
       res.status(503).json({ error: "HEALTH_SYNC_TOKEN 未設定，同步功能未啟用" });
       return;
     }
-    if (!tokenMatches(req.headers.authorization, token)) {
+    if (!tokenMatches(req, token)) {
       res.status(401).json({ error: "無效的同步密鑰" });
       return;
     }
@@ -89,13 +101,24 @@ export function registerHealthSync(app: Express) {
       return;
     }
 
-    // Accept {workouts:[...]}, a bare array, or a single workout object.
-    const body = req.body as { workouts?: IncomingWorkout[] } | IncomingWorkout[] | IncomingWorkout;
-    const list: IncomingWorkout[] = Array.isArray(body)
-      ? body
-      : Array.isArray((body as { workouts?: IncomingWorkout[] }).workouts)
-        ? (body as { workouts: IncomingWorkout[] }).workouts
-        : [body as IncomingWorkout];
+    // Accept {workouts:[...]}, a bare array, a single object, or query params
+    // (?type=跑步&durationMin=32&start=... — the zero-JSON Shortcuts mode).
+    let list: IncomingWorkout[];
+    if (typeof req.query.type === "string" && req.query.type) {
+      list = [{
+        type: req.query.type,
+        durationMin: req.query.durationMin,
+        caloriesBurned: req.query.caloriesBurned,
+        start: typeof req.query.start === "string" ? fixQueryDate(req.query.start) : undefined,
+      }];
+    } else {
+      const body = req.body as { workouts?: IncomingWorkout[] } | IncomingWorkout[] | IncomingWorkout;
+      list = Array.isArray(body)
+        ? body
+        : Array.isArray((body as { workouts?: IncomingWorkout[] }).workouts)
+          ? (body as { workouts: IncomingWorkout[] }).workouts
+          : [body as IncomingWorkout];
+    }
 
     let imported = 0;
     let skipped = 0;
@@ -139,5 +162,7 @@ export function registerHealthSync(app: Express) {
     }
 
     res.json({ imported, skipped, errors });
-  });
+  };
+  app.post("/api/health/sync", handler);
+  app.get("/api/health/sync", handler);
 }
