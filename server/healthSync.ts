@@ -8,6 +8,13 @@ import { getExerciseLogs, insertExerciseLog } from "./db";
 
 const SYNC_NOTE = "Apple Watch 同步";
 
+// kcal/min estimates per app type — fallback when the Shortcut can't supply
+// active energy (mirrors the client's manual-entry estimator).
+const CAL_PER_MIN: Record<string, number> = {
+  慢跑: 8, 快走: 5, 游泳: 9, 騎自行車: 6, 重量訓練: 5, 瑜珈: 3,
+  有氧運動: 7, 跳繩: 10, 爬山: 7, 籃球: 8, 足球: 8, 羽球: 7,
+};
+
 // Map Apple workout type names (English & Chinese variants) to the app's types.
 const TYPE_MAP: Record<string, string> = {
   running: "慢跑", 跑步: "慢跑", 戶外跑步: "慢跑", 室內跑步: "慢跑",
@@ -97,7 +104,10 @@ export function registerHealthSync(app: Express) {
     for (const w of list) {
       const type = typeof w.type === "string" ? mapType(w.type) : "";
       const durationMin = Math.round(parseNumber(w.durationMin));
-      const caloriesBurned = Math.round(parseNumber(w.caloriesBurned));
+      let caloriesBurned = Math.round(parseNumber(w.caloriesBurned));
+      if (caloriesBurned <= 0 && durationMin > 0) {
+        caloriesBurned = Math.round(durationMin * (CAL_PER_MIN[type] ?? 5));
+      }
       const loggedAt = parseStart(w.start) ?? Date.now();
 
       if (!type || durationMin <= 0) {
