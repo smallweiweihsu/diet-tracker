@@ -42,6 +42,7 @@ pnpm dev               # http://localhost:3000
 | `ANTHROPIC_API_KEY` | 選填 | 啟用 AI 拍照辨識；到 [platform.claude.com](https://platform.claude.com) 取得 |
 | `ANTHROPIC_MODEL` | 選填 | 預設 `claude-opus-4-8` |
 | `APP_PASSWORD` | 選填 | 設定後開啟 App 需輸入密碼；未設定則直接可用 |
+| `HEALTH_SYNC_TOKEN` | 選填 | 啟用 `POST /api/health/sync`，配合 iPhone 捷徑同步 Apple Watch 運動記錄 |
 | `PORT` | 選填 | 預設 3000 |
 
 ## 部署
