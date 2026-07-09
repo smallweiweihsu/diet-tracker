@@ -10,6 +10,10 @@ export interface FoodAnalysisItem {
   proteinG: number;
   carbsG: number;
   fatG: number;
+  sugarG: number;
+  saturatedFatG: number;
+  fiberG: number;
+  sodiumMg: number;
 }
 
 export interface FoodAnalysisResult {
@@ -32,8 +36,12 @@ const FOOD_ANALYSIS_SCHEMA = {
           proteinG: { type: "number", description: "蛋白質（g）" },
           carbsG: { type: "number", description: "碳水化合物（g）" },
           fatG: { type: "number", description: "脂肪（g）" },
+          sugarG: { type: "number", description: "糖（g）" },
+          saturatedFatG: { type: "number", description: "飽和脂肪（g）" },
+          fiberG: { type: "number", description: "膳食纖維（g）" },
+          sodiumMg: { type: "number", description: "鈉（mg）" },
         },
-        required: ["name", "quantity", "unit", "calories", "proteinG", "carbsG", "fatG"],
+        required: ["name", "quantity", "unit", "calories", "proteinG", "carbsG", "fatG", "sugarG", "saturatedFatG", "fiberG", "sodiumMg"],
         additionalProperties: false,
       },
     },
@@ -73,7 +81,7 @@ export async function analyzeFoodImage(
     model: ENV.anthropicModel,
     max_tokens: 4096,
     system:
-      "你是一位專業的營養師。請分析食物照片，辨識所有食物，並以合理的常見份量估算每項食物的營養成分。所有名稱使用繁體中文。",
+      "你是一位專業的營養師。請分析食物照片（也可能是包裝上的營養標示），辨識所有食物，並以合理的常見份量估算每項食物的營養成分：熱量、蛋白質、碳水化合物、脂肪、糖、飽和脂肪、膳食纖維、鈉。若照片是營養標示，直接按標示數值填寫。所有名稱使用繁體中文。",
     messages: [
       {
         role: "user",

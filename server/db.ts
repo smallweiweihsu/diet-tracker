@@ -216,6 +216,11 @@ export async function upsertUserGoals(data: InsertUserGoals) {
         proteinG: data.proteinG,
         carbsG: data.carbsG,
         fatG: data.fatG,
+        sex: data.sex,
+        age: data.age,
+        heightCm: data.heightCm,
+        weeklyExerciseDays: data.weeklyExerciseDays,
+        goalType: data.goalType,
         reminderTime: data.reminderTime,
       },
     });

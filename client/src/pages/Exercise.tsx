@@ -35,10 +35,10 @@ function AddExerciseSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"
-         style={{ maxWidth: 430, left: "50%", transform: "translateX(-50%)" }}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col">
+      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col max-w-[430px]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>

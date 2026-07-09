@@ -45,13 +45,13 @@ export default function WeightModal({ current, onClose, onSaved }: Props) {
   const valid = !isNaN(num) && num >= 20 && num <= 300;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"
-         style={{ maxWidth: 430, left: "50%", transform: "translateX(-50%)" }}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Sheet */}
-      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up pb-8">
+      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up pb-8 max-w-[430px]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-border" />

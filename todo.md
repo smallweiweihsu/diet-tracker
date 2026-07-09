@@ -45,3 +45,15 @@
 - [x] 移除 Manus 專屬模組（oauth/sdk/storage/notification/llm/map 等）與執行環境外掛
 - [x] 新增 README、.env.example、Dockerfile，可部署至任何 Node.js 平台
 - [x] 24 個測試全數通過、型別檢查與建置成功
+
+## 手機實測修正（2026-07 第二輪）
+- [x] 修正彈窗變半寬長條的 CSS bug（inset-0 被 inline style 覆蓋）
+- [x] 修正彈窗被底部導覽列蓋住儲存鈕（z-index 60）
+- [x] 底部導覽列避開 iPhone home indicator（viewport-fit=cover + safe-area）
+- [x] 修正深色模式只有局部變色（@theme inline 改為 :root/.dark 變數結構）
+- [x] 修正 session cookie SameSite=None 在 HTTP 下被瀏覽器丟棄
+- [x] 拍照／相簿分開按鈕；新增手動輸入營養成分
+- [x] 營養欄位擴充：糖、飽和脂肪、膳食纖維、鈉（AI 辨識、顯示、CSV 同步）
+- [x] 熱量目標計算機：依性別/年齡/身高/每週運動天數/目標自動建議（Mifflin-St Jeor）
+- [x] 全新 App icon + PWA manifest（加入主畫面有圖示、standalone 模式）
+- [x] 本地 MySQL + Playwright 端對端實測 14 項全部通過

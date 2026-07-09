@@ -1,0 +1,15 @@
+{
+  "name": "Diet Tracker 飲食追蹤",
+  "short_name": "Diet Tracker",
+  "description": "記錄飲食、追蹤運動、達成健康目標",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f9f5",
+  "theme_color": "#3f9e60",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

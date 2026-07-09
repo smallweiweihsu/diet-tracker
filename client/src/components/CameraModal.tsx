@@ -1,17 +1,46 @@
 import { useState, useRef } from "react";
-import { X, Camera, Upload, Check, Loader2, Minus, Plus } from "lucide-react";
+import { X, Camera, Image as ImageIcon, PencilLine, Check, Loader2, Plus } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn, MEAL_LABELS } from "@/lib/utils";
 
-interface FoodItem {
+// Editable draft — keep values as strings so typing "12." works naturally.
+interface FoodDraft {
   name: string;
-  quantity: number;
+  quantity: string;
   unit: string;
-  calories: number;
-  proteinG: number;
-  carbsG: number;
-  fatG: number;
+  calories: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+  sugarG: string;
+  saturatedFatG: string;
+  fiberG: string;
+  sodiumMg: string;
+}
+
+const NUTRITION_FIELDS = [
+  { field: "calories" as const, label: "熱量", unit: "kcal" },
+  { field: "proteinG" as const, label: "蛋白質", unit: "g" },
+  { field: "carbsG" as const, label: "碳水", unit: "g" },
+  { field: "fatG" as const, label: "脂肪", unit: "g" },
+  { field: "sugarG" as const, label: "糖", unit: "g" },
+  { field: "saturatedFatG" as const, label: "飽和脂肪", unit: "g" },
+  { field: "fiberG" as const, label: "膳食纖維", unit: "g" },
+  { field: "sodiumMg" as const, label: "鈉", unit: "mg" },
+];
+
+function emptyDraft(): FoodDraft {
+  return {
+    name: "", quantity: "1", unit: "份",
+    calories: "", proteinG: "", carbsG: "", fatG: "",
+    sugarG: "", saturatedFatG: "", fiberG: "", sodiumMg: "",
+  };
+}
+
+function num(value: string): number {
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 interface Props {
@@ -26,16 +55,27 @@ type Step = "capture" | "analyzing" | "confirm";
 export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
   const [step, setStep] = useState<Step>("capture");
   const [preview, setPreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string>("");
-  const [mimeType, setMimeType] = useState("image/jpeg");
-  const [foods, setFoods] = useState<FoodItem[]>([]);
-  const [imageUrl, setImageUrl] = useState<string>("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [foods, setFoods] = useState<FoodDraft[]>([]);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   const analyze = trpc.food.analyzeImage.useMutation({
     onSuccess: (data) => {
-      setFoods(data.foods);
-      setImageUrl(data.imageUrl);
+      setFoods(
+        data.foods.map((f) => ({
+          name: f.name,
+          quantity: String(f.quantity),
+          unit: f.unit,
+          calories: String(Math.round(f.calories)),
+          proteinG: String(Math.round(f.proteinG)),
+          carbsG: String(Math.round(f.carbsG)),
+          fatG: String(Math.round(f.fatG)),
+          sugarG: String(Math.round(f.sugarG ?? 0)),
+          saturatedFatG: String(Math.round(f.saturatedFatG ?? 0)),
+          fiberG: String(Math.round(f.fiberG ?? 0)),
+          sodiumMg: String(Math.round(f.sodiumMg ?? 0)),
+        }))
+      );
       setStep("confirm");
     },
     onError: (e) => {
@@ -48,33 +88,46 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
 
   const handleFile = (file: File) => {
     const mime = file.type || "image/jpeg";
-    setMimeType(mime);
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       setPreview(dataUrl);
       const base64 = dataUrl.split(",")[1] ?? "";
-      setImageBase64(base64);
       setStep("analyzing");
       analyze.mutate({ imageBase64: base64, mimeType: mime });
     };
     reader.readAsDataURL(file);
   };
 
+  const startManual = () => {
+    setPreview(null);
+    setFoods([emptyDraft()]);
+    setStep("confirm");
+  };
+
+  const validFoods = foods.filter((f) => f.name.trim().length > 0);
+
   const handleSaveAll = async () => {
+    if (validFoods.length === 0) {
+      toast.error("請至少填寫一項食物名稱");
+      return;
+    }
     try {
       await Promise.all(
-        foods.map((f) =>
+        validFoods.map((f) =>
           addFood.mutateAsync({
             mealType: meal as "breakfast" | "lunch" | "dinner" | "snack",
-            foodName: f.name,
-            quantity: f.quantity,
-            unit: f.unit,
-            calories: f.calories,
-            proteinG: f.proteinG,
-            carbsG: f.carbsG,
-            fatG: f.fatG,
-            imageUrl,
+            foodName: f.name.trim(),
+            quantity: num(f.quantity) || 1,
+            unit: f.unit || "份",
+            calories: num(f.calories),
+            proteinG: num(f.proteinG),
+            carbsG: num(f.carbsG),
+            fatG: num(f.fatG),
+            sugarG: num(f.sugarG),
+            saturatedFatG: num(f.saturatedFatG),
+            fiberG: num(f.fiberG),
+            sodiumMg: num(f.sodiumMg),
             loggedAt: dateMs,
           })
         )
@@ -85,7 +138,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
     }
   };
 
-  const updateFood = (idx: number, field: keyof FoodItem, val: number | string) => {
+  const updateFood = (idx: number, field: keyof FoodDraft, val: string) => {
     setFoods((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: val } : f)));
   };
 
@@ -93,12 +146,14 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
     setFoods((prev) => prev.filter((_, i) => i !== idx));
   };
 
+  const totalCalories = Math.round(validFoods.reduce((s, f) => s + num(f.calories), 0));
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"
-         style={{ maxWidth: 430, left: "50%", transform: "translateX(-50%)" }}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={step === "capture" ? onClose : undefined} />
 
-      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col">
+      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col max-w-[430px]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-border" />
@@ -107,7 +162,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-foreground">AI 拍照辨識</h2>
+            <h2 className="text-lg font-bold text-foreground">記錄飲食</h2>
             <p className="text-xs text-muted-foreground">{MEAL_LABELS[meal] ?? meal}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
@@ -119,32 +174,47 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
         <div className="flex-1 overflow-y-auto px-5 pb-6">
           {/* Step: Capture */}
           {step === "capture" && (
-            <div className="flex flex-col items-center gap-4 py-6">
-              <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center">
-                <Camera size={40} className="text-primary" />
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
+                <Camera size={36} className="text-primary" />
               </div>
-              <p className="text-sm text-muted-foreground text-center">
-                拍攝或上傳食物照片，AI 將自動辨識食物內容與營養成分
+              <p className="text-sm text-muted-foreground text-center mb-1">
+                拍攝食物或營養標示，AI 自動辨識營養成分；也可以手動輸入
               </p>
               <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
+                ref={cameraRef} type="file" accept="image/*" capture="environment"
                 className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
-                }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+              <input
+                ref={galleryRef} type="file" accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
               />
               <button
-                onClick={() => fileRef.current?.click()}
-                className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold text-base
+                onClick={() => cameraRef.current?.click()}
+                className="w-full py-3.5 rounded-full bg-primary text-primary-foreground font-bold text-base
                            shadow-lg shadow-primary/30 active:scale-[0.98] transition-all duration-150
                            flex items-center justify-center gap-2"
               >
-                <Camera size={20} />
-                拍照 / 選擇圖片
+                <Camera size={19} />
+                拍照辨識
+              </button>
+              <button
+                onClick={() => galleryRef.current?.click()}
+                className="w-full py-3.5 rounded-full border border-primary/40 text-primary font-bold text-base
+                           active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+              >
+                <ImageIcon size={19} />
+                從相簿選擇
+              </button>
+              <button
+                onClick={startManual}
+                className="w-full py-3.5 rounded-full border border-border text-foreground font-medium text-base
+                           active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+              >
+                <PencilLine size={18} />
+                手動輸入營養成分
               </button>
             </div>
           )}
@@ -163,85 +233,101 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
             </div>
           )}
 
-          {/* Step: Confirm */}
+          {/* Step: Confirm / Manual edit */}
           {step === "confirm" && (
             <div className="flex flex-col gap-4">
               {preview && (
                 <img src={preview} alt="food" className="w-full max-h-36 object-cover rounded-2xl" />
               )}
-              <p className="text-sm font-semibold text-foreground">辨識結果（可調整）</p>
-              {foods.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">未辨識到食物，請重新拍照</p>
-              )}
+              <p className="text-sm font-semibold text-foreground">
+                {preview ? "辨識結果（可調整）" : "輸入食物與營養成分"}
+              </p>
               {foods.map((food, idx) => (
                 <div key={idx} className="rounded-2xl border border-border bg-muted/30 p-4">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <p className="font-semibold text-foreground">{food.name}</p>
-                      <p className="text-xs text-muted-foreground">{food.quantity} {food.unit}</p>
-                    </div>
+                  <div className="flex items-start gap-2 mb-3">
+                    <input
+                      type="text"
+                      value={food.name}
+                      onChange={(e) => updateFood(idx, "name", e.target.value)}
+                      placeholder="食物名稱"
+                      className="flex-1 h-10 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground
+                                 placeholder:text-muted-foreground placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
                     <button
                       onClick={() => removeFood(idx)}
-                      className="w-7 h-7 rounded-full bg-destructive/10 flex items-center justify-center ml-2"
+                      className="w-10 h-10 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0"
                     >
-                      <X size={14} className="text-destructive" />
+                      <X size={15} className="text-destructive" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { label: "卡路里", field: "calories" as const, unit: "kcal", color: "text-primary" },
-                      { label: "蛋白質", field: "proteinG" as const, unit: "g", color: "text-[var(--color-protein)]" },
-                      { label: "碳水", field: "carbsG" as const, unit: "g", color: "text-[var(--color-carbs)]" },
-                      { label: "脂肪", field: "fatG" as const, unit: "g", color: "text-[var(--color-fat)]" },
-                    ].map(({ label, field, unit, color }) => (
-                      <div key={field} className="text-center">
-                        <p className="text-[10px] text-muted-foreground mb-1">{label}</p>
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => updateFood(idx, field, Math.max(0, Number(food[field]) - (field === "calories" ? 5 : 1)))}
-                            className="w-5 h-5 rounded-full bg-muted flex items-center justify-center"
-                          >
-                            <Minus size={10} />
-                          </button>
-                          <span className={cn("num-display text-sm font-bold", color)}>
-                            {Math.round(Number(food[field]))}
-                          </span>
-                          <button
-                            onClick={() => updateFood(idx, field, Number(food[field]) + (field === "calories" ? 5 : 1))}
-                            className="w-5 h-5 rounded-full bg-muted flex items-center justify-center"
-                          >
-                            <Plus size={10} />
-                          </button>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">{unit}</p>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">份量</label>
+                      <input
+                        type="number" inputMode="decimal" value={food.quantity}
+                        onChange={(e) => updateFood(idx, "quantity", e.target.value)}
+                        className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-muted-foreground mb-1 block">單位</label>
+                      <input
+                        type="text" value={food.unit}
+                        onChange={(e) => updateFood(idx, "unit", e.target.value)}
+                        placeholder="份 / g / ml"
+                        className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {NUTRITION_FIELDS.map(({ field, label, unit }) => (
+                      <div key={field}>
+                        <label className="text-[10px] text-muted-foreground mb-1 block">
+                          {label} <span className="opacity-70">({unit})</span>
+                        </label>
+                        <input
+                          type="number" inputMode="decimal" min={0}
+                          value={food[field]}
+                          onChange={(e) => updateFood(idx, field, e.target.value)}
+                          placeholder="0"
+                          className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm num-display text-foreground
+                                     placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
 
-              {foods.length > 0 && (
+              <button
+                onClick={() => setFoods((prev) => [...prev, emptyDraft()])}
+                className="w-full h-11 rounded-2xl border border-dashed border-border text-muted-foreground text-sm font-medium
+                           flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all"
+              >
+                <Plus size={15} />
+                再加一項食物
+              </button>
+
+              {validFoods.length > 0 && (
                 <div className="rounded-2xl bg-primary/10 p-3 text-center">
                   <p className="text-sm text-muted-foreground">合計熱量</p>
-                  <p className="num-display text-2xl font-bold text-primary">
-                    {Math.round(foods.reduce((s, f) => s + f.calories, 0))} kcal
-                  </p>
+                  <p className="num-display text-2xl font-bold text-primary">{totalCalories} kcal</p>
                 </div>
               )}
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => { setStep("capture"); setPreview(null); }}
+                  onClick={() => { setStep("capture"); setPreview(null); setFoods([]); }}
                   className="flex-1 h-12 rounded-full border border-border text-foreground font-medium active:scale-[0.98] transition-all"
                 >
-                  重新拍照
+                  重新選擇
                 </button>
                 <button
                   onClick={handleSaveAll}
-                  disabled={foods.length === 0 || addFood.isPending}
+                  disabled={validFoods.length === 0 || addFood.isPending}
                   className={cn(
                     "flex-1 h-12 rounded-full font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2",
-                    foods.length > 0
+                    validFoods.length > 0
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                       : "bg-muted text-muted-foreground cursor-not-allowed"
                   )}

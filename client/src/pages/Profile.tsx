@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { User, Target, Moon, Sun, Bell, Download, LogOut, ChevronRight, Check } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { User, Target, Moon, Sun, Bell, Download, LogOut, ChevronRight, Check, Calculator } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -43,6 +43,9 @@ function SettingRow({
 
 function GoalsSheet({ onClose }: { onClose: () => void }) {
   const { data: goals } = trpc.goals.get.useQuery();
+  const { data: weightHistory = [] } = trpc.weight.history.useQuery({ days: 90 });
+  const latestWeight = weightHistory[weightHistory.length - 1]?.weightKg ?? null;
+
   const [form, setForm] = useState({
     targetWeightKg: "",
     dailyCalories: "1800",
@@ -50,6 +53,13 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
     carbsG: "200",
     fatG: "60",
     reminderTime: "07:00",
+  });
+  const [calc, setCalc] = useState({
+    sex: "" as "" | "male" | "female",
+    age: "",
+    heightCm: "",
+    weeklyExerciseDays: "3",
+    goalType: "maintain" as "lose" | "maintain" | "gain",
   });
 
   useEffect(() => {
@@ -62,6 +72,13 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
         fatG: String(goals.fatG ?? 60),
         reminderTime: goals.reminderTime ?? "07:00",
       });
+      setCalc({
+        sex: (goals.sex as "male" | "female" | null) ?? "",
+        age: goals.age ? String(goals.age) : "",
+        heightCm: goals.heightCm ? String(goals.heightCm) : "",
+        weeklyExerciseDays: String(goals.weeklyExerciseDays ?? 3),
+        goalType: (goals.goalType as "lose" | "maintain" | "gain" | null) ?? "maintain",
+      });
     }
   }, [goals]);
 
@@ -69,6 +86,39 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
     onSuccess: () => { toast.success("目標已更新！"); onClose(); },
     onError: (e) => toast.error(e.message),
   });
+
+  // ── 建議熱量：Mifflin-St Jeor BMR × 活動係數（依每週運動天數）±目標調整 ──
+  const suggestion = useMemo(() => {
+    const age = parseInt(calc.age);
+    const height = parseFloat(calc.heightCm);
+    const days = parseInt(calc.weeklyExerciseDays);
+    if (!calc.sex || !age || !height || latestWeight === null || Number.isNaN(days)) return null;
+
+    const bmr =
+      10 * latestWeight + 6.25 * height - 5 * age + (calc.sex === "male" ? 5 : -161);
+    const activityFactor =
+      days <= 0 ? 1.2 : days <= 2 ? 1.375 : days <= 4 ? 1.55 : days <= 6 ? 1.725 : 1.9;
+    const adjustment = calc.goalType === "lose" ? -400 : calc.goalType === "gain" ? 300 : 0;
+    const calories = Math.max(1000, Math.round((bmr * activityFactor + adjustment) / 50) * 50);
+
+    // 蛋白質 1.6 g/kg、脂肪佔 25% 熱量、碳水補足剩餘
+    const proteinG = Math.round(latestWeight * 1.6);
+    const fatG = Math.round((calories * 0.25) / 9);
+    const carbsG = Math.max(0, Math.round((calories - proteinG * 4 - fatG * 9) / 4));
+    return { calories, proteinG, fatG, carbsG };
+  }, [calc, latestWeight]);
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    setForm((f) => ({
+      ...f,
+      dailyCalories: String(suggestion.calories),
+      proteinG: String(suggestion.proteinG),
+      carbsG: String(suggestion.carbsG),
+      fatG: String(suggestion.fatG),
+    }));
+    toast.success("已套用建議值，記得按儲存");
+  };
 
   const handleSave = () => {
     updateGoals.mutate({
@@ -78,6 +128,11 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
       carbsG: parseInt(form.carbsG) || 200,
       fatG: parseInt(form.fatG) || 60,
       reminderTime: form.reminderTime,
+      sex: calc.sex || null,
+      age: calc.age ? parseInt(calc.age) : null,
+      heightCm: calc.heightCm ? parseFloat(calc.heightCm) : null,
+      weeklyExerciseDays: calc.weeklyExerciseDays ? parseInt(calc.weeklyExerciseDays) : null,
+      goalType: calc.goalType,
     });
   };
 
@@ -90,11 +145,15 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
     { key: "reminderTime", label: "晨間提醒時間", unit: "", type: "time", placeholder: "07:00" },
   ];
 
+  const inputCls =
+    "w-full h-11 rounded-2xl border border-border bg-muted/30 px-3 text-foreground text-sm " +
+    "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center"
-         style={{ maxWidth: 430, left: "50%", transform: "translateX(-50%)" }}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col">
+      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col max-w-[430px]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
         <div className="flex justify-center pt-3 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-border" />
         </div>
@@ -104,6 +163,100 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
         </div>
         <div className="flex-1 overflow-y-auto px-5 pb-8">
           <div className="flex flex-col gap-4">
+            {/* ── 熱量目標計算機 ─────────────────────────────────── */}
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Calculator size={16} className="text-primary" />
+                <p className="text-sm font-bold text-foreground">依運動量計算建議熱量</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">性別</label>
+                  <div className="flex gap-1">
+                    {([["male", "男"], ["female", "女"]] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        onClick={() => setCalc((c) => ({ ...c, sex: value }))}
+                        className={cn(
+                          "flex-1 h-11 rounded-2xl text-sm font-medium border transition-all",
+                          calc.sex === value
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-muted/30 text-muted-foreground border-border"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">年齡</label>
+                  <input type="number" inputMode="numeric" value={calc.age} placeholder="30"
+                    onChange={(e) => setCalc((c) => ({ ...c, age: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">身高 (cm)</label>
+                  <input type="number" inputMode="decimal" value={calc.heightCm} placeholder="170"
+                    onChange={(e) => setCalc((c) => ({ ...c, heightCm: e.target.value }))} className={inputCls} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-muted-foreground mb-1 block">每週運動天數</label>
+                  <select
+                    value={calc.weeklyExerciseDays}
+                    onChange={(e) => setCalc((c) => ({ ...c, weeklyExerciseDays: e.target.value }))}
+                    className={inputCls}
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => (
+                      <option key={d} value={d}>{d} 天</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground mb-1 block">目標</label>
+                <div className="flex gap-1">
+                  {([["lose", "減重"], ["maintain", "維持"], ["gain", "增重"]] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setCalc((c) => ({ ...c, goalType: value }))}
+                      className={cn(
+                        "flex-1 h-10 rounded-2xl text-sm font-medium border transition-all",
+                        calc.goalType === value
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted/30 text-muted-foreground border-border"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {latestWeight === null ? (
+                <p className="text-xs text-muted-foreground">先在首頁記錄一次體重，才能計算建議熱量</p>
+              ) : suggestion ? (
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">以體重 {latestWeight.toFixed(1)} kg 計算</p>
+                    <p className="num-display text-xl font-bold text-primary">
+                      {suggestion.calories} <span className="text-xs font-normal">kcal/天</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      蛋白 {suggestion.proteinG}g · 碳水 {suggestion.carbsG}g · 脂肪 {suggestion.fatG}g
+                    </p>
+                  </div>
+                  <button
+                    onClick={applySuggestion}
+                    className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-sm shadow-primary/30 active:scale-95 transition-all shrink-0"
+                  >
+                    套用建議
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">填齊性別、年齡、身高後顯示建議熱量</p>
+              )}
+            </div>
+
+            {/* ── 手動目標欄位 ───────────────────────────────────── */}
             {fields.map(({ key, label, unit, type, placeholder }) => (
               <div key={key}>
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -165,12 +318,13 @@ export default function Profile() {
         "",
         "=== 飲食記錄 ===",
         toCsvRows(
-          ["日期", "餐別", "食物", "份量", "單位", "熱量(kcal)", "蛋白質(g)", "碳水(g)", "脂肪(g)"],
+          ["日期", "餐別", "食物", "份量", "單位", "熱量(kcal)", "蛋白質(g)", "碳水(g)", "脂肪(g)", "糖(g)", "飽和脂肪(g)", "膳食纖維(g)", "鈉(mg)"],
           data.foods.map((f) => [
             formatDateTime(f.loggedAt),
             MEAL_LABELS[f.mealType] ?? f.mealType,
             f.foodName, f.quantity, f.unit ?? "",
             f.calories, f.proteinG ?? 0, f.carbsG ?? 0, f.fatG ?? 0,
+            f.sugarG ?? 0, f.saturatedFatG ?? 0, f.fiberG ?? 0, f.sodiumMg ?? 0,
           ])
         ),
         "",

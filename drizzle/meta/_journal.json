@@ -15,6 +15,13 @@
       "when": 1783524443980,
       "tag": "0001_lying_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1783622341340,
+      "tag": "0002_many_prodigy",
+      "breakpoints": true
     }
   ]
 }

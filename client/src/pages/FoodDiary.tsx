@@ -11,7 +11,7 @@ function MealSection({
   meal, foods, dateMs, onCamera, onDelete,
 }: {
   meal: string;
-  foods: Array<{ id: number; foodName: string; quantity: number; unit: string | null; calories: number; proteinG: number | null; carbsG: number | null; fatG: number | null }>;
+  foods: Array<{ id: number; foodName: string; quantity: number; unit: string | null; calories: number; proteinG: number | null; carbsG: number | null; fatG: number | null; sugarG: number | null; saturatedFatG: number | null; fiberG: number | null; sodiumMg: number | null }>;
   dateMs: number;
   onCamera: () => void;
   onDelete: (id: number) => void;
@@ -65,8 +65,13 @@ function MealSection({
               <div className="text-right shrink-0">
                 <p className="num-display text-sm font-semibold text-foreground">{formatNum(f.calories)} kcal</p>
                 <p className="text-[10px] text-muted-foreground">
-                  P {formatNum(f.proteinG ?? 0, 0)}g · C {formatNum(f.carbsG ?? 0, 0)}g · F {formatNum(f.fatG ?? 0, 0)}g
+                  蛋白 {formatNum(f.proteinG ?? 0, 0)} · 碳水 {formatNum(f.carbsG ?? 0, 0)} · 脂肪 {formatNum(f.fatG ?? 0, 0)}g
                 </p>
+                {Boolean((f.sugarG ?? 0) || (f.saturatedFatG ?? 0) || (f.fiberG ?? 0) || (f.sodiumMg ?? 0)) && (
+                  <p className="text-[10px] text-muted-foreground">
+                    糖 {formatNum(f.sugarG ?? 0, 0)} · 飽脂 {formatNum(f.saturatedFatG ?? 0, 0)} · 纖 {formatNum(f.fiberG ?? 0, 0)}g · 鈉 {formatNum(f.sodiumMg ?? 0, 0)}mg
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => onDelete(f.id)}

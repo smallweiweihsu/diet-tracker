@@ -136,6 +136,10 @@ export const appRouter = router({
           proteinG: z.number().min(0).default(0),
           carbsG: z.number().min(0).default(0),
           fatG: z.number().min(0).default(0),
+          sugarG: z.number().min(0).default(0),
+          saturatedFatG: z.number().min(0).default(0),
+          fiberG: z.number().min(0).default(0),
+          sodiumMg: z.number().min(0).default(0),
           imageUrl: z.string().optional(),
           loggedAt: z.number().optional(),
         })
@@ -151,6 +155,10 @@ export const appRouter = router({
           proteinG: input.proteinG,
           carbsG: input.carbsG,
           fatG: input.fatG,
+          sugarG: input.sugarG,
+          saturatedFatG: input.saturatedFatG,
+          fiberG: input.fiberG,
+          sodiumMg: input.sodiumMg,
           imageUrl: input.imageUrl,
           loggedAt: input.loggedAt ?? Date.now(),
         });
@@ -234,6 +242,11 @@ export const appRouter = router({
           proteinG: 120,
           carbsG: 200,
           fatG: 60,
+          sex: null,
+          age: null,
+          heightCm: null,
+          weeklyExerciseDays: null,
+          goalType: "maintain" as const,
           reminderTime: "07:00",
         }
       );
@@ -244,6 +257,11 @@ export const appRouter = router({
         z.object({
           targetWeightKg: z.number().positive().nullable().optional(),
           dailyCalories: z.number().int().min(500).max(9999).optional(),
+          sex: z.enum(["male", "female"]).nullable().optional(),
+          age: z.number().int().min(5).max(120).nullable().optional(),
+          heightCm: z.number().min(80).max(250).nullable().optional(),
+          weeklyExerciseDays: z.number().int().min(0).max(7).nullable().optional(),
+          goalType: z.enum(["lose", "maintain", "gain"]).optional(),
           proteinG: z.number().int().min(0).optional(),
           carbsG: z.number().int().min(0).optional(),
           fatG: z.number().int().min(0).optional(),
