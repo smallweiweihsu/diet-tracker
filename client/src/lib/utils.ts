@@ -29,6 +29,19 @@ export function addDays(ms: number, days: number): number {
   return ms + days * 24 * 60 * 60 * 1000;
 }
 
+// <input type="date"> uses local YYYY-MM-DD.
+export function dateInputValue(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+export function dayStartFromInput(value: string): number {
+  const [y, m, d] = value.split("-").map(Number);
+  if (!y || !m || !d) return dayStartMs(Date.now());
+  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+}
+
 export function isSameDay(a: number, b: number): boolean {
   const da = new Date(a);
   const db = new Date(b);
@@ -122,6 +135,7 @@ export interface ExerciseTypeConfig {
   numeric: ExerciseNumericField[];
   strokes?: boolean;      // swimming: distance per stroke style
   muscleGroups?: boolean; // gym: which body parts trained
+  pace?: boolean;         // swimming: average pace (per 100m)
 }
 
 const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "caloriesBurned"];
@@ -129,7 +143,7 @@ const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "cal
 export const EXERCISE_TYPE_CONFIG: Record<string, ExerciseTypeConfig> = {
   走路: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
   騎自行車: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
-  游泳: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], strokes: true },
+  游泳: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], strokes: true, pace: true },
   健身: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], muscleGroups: true },
   羽球: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
   慢跑: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
@@ -146,6 +160,7 @@ export const MUSCLE_GROUPS = ["胸", "背", "腿", "肩", "手臂", "核心"] as
 export interface ExerciseDetails {
   strokes?: Record<string, number>;   // stroke name → distance (m)
   muscleGroups?: string[];
+  pace?: string;                       // avg pace, e.g. "2:05" (per 100m)
 }
 
 export function parseExerciseDetails(raw: string | null | undefined): ExerciseDetails {

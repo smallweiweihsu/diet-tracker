@@ -15,6 +15,7 @@ function exerciseDetailText(raw: string | null | undefined): string {
     const s = Object.entries(d.strokes).map(([k, v]) => `${k}${v}m`).join(" ");
     if (s) parts.push(s);
   }
+  if (d.pace) parts.push(`配速${d.pace}/100m`);
   return parts.join("；");
 }
 

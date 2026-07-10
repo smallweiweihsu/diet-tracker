@@ -23,7 +23,7 @@ import {
   signSessionToken,
   verifyPassword,
 } from "./_core/auth";
-import { analyzeFoodImage } from "./ai";
+import { analyzeFoodImage, analyzeWorkoutImage } from "./ai";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -240,10 +240,11 @@ export const appRouter = router({
           avgSpeedKmh: z.number().min(0).nullable().optional(),
           details: z.string().nullable().optional(),
           note: z.string().nullable().optional(),
+          loggedAt: z.number().optional(),
         })
       )
       .mutation(async ({ ctx, input }) => {
-        const { id, ...fields } = input;
+        const { id, loggedAt, ...fields } = input;
         await updateExerciseLog(id, ctx.user.id, {
           exerciseType: fields.exerciseType,
           durationMin: fields.durationMin,
@@ -254,8 +255,20 @@ export const appRouter = router({
           avgSpeedKmh: fields.avgSpeedKmh ?? null,
           details: fields.details ?? null,
           note: fields.note ?? null,
+          ...(loggedAt !== undefined ? { loggedAt } : {}),
         });
         return { success: true };
+      }),
+
+    analyzeImage: protectedProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/jpeg"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        return analyzeWorkoutImage(input.imageBase64, input.mimeType);
       }),
 
     byDate: protectedProcedure

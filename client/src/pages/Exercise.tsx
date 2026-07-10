@@ -1,8 +1,8 @@
-import { useState, useMemo } from "react";
-import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import {
-  cn, formatNum, dayStartMs, addDays,
+  cn, formatNum, dayStartMs, addDays, dateInputValue, dayStartFromInput,
   EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
   EXERCISE_NUMERIC_LABELS, exerciseConfig,
   SWIM_STROKES, MUSCLE_GROUPS,
@@ -65,11 +65,51 @@ function ExerciseSheet({
     return s;
   });
   const [muscles, setMuscles] = useState<string[]>(initialDetails.muscleGroups ?? []);
+  const [pace, setPace] = useState(initialDetails.pace ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
+  // Date the exercise is logged to. Defaults to the page's selected day (today).
+  const [dateStr, setDateStr] = useState(() =>
+    dateInputValue(existing ? dayStartMs(Date.now()) : dateMs)
+  );
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const config = exerciseConfig(type);
   const durationNum = parseInt(fields.durationMin) || 0;
   const estimatedCal = Math.round(durationNum * (EXERCISE_CALORIE_PER_MIN[type] ?? 5));
+
+  const analyzeImage = trpc.exercise.analyzeImage.useMutation();
+
+  const handleImage = (file: File) => {
+    const mime = file.type || "image/jpeg";
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target?.result as string;
+      const base64 = dataUrl.split(",")[1] ?? "";
+      setAnalyzing(true);
+      try {
+        const r = await analyzeImage.mutateAsync({ imageBase64: base64, mimeType: mime });
+        if (r.exerciseType && EXERCISE_TYPES.includes(r.exerciseType)) setType(r.exerciseType);
+        setFields((f) => ({
+          ...f,
+          durationMin: r.durationMin > 0 ? String(Math.round(r.durationMin)) : f.durationMin,
+          caloriesBurned: r.caloriesBurned > 0 ? String(Math.round(r.caloriesBurned)) : f.caloriesBurned,
+          avgHeartRate: r.avgHeartRate > 0 ? String(Math.round(r.avgHeartRate)) : f.avgHeartRate,
+          maxHeartRate: r.maxHeartRate > 0 ? String(Math.round(r.maxHeartRate)) : f.maxHeartRate,
+          distanceKm: r.distanceKm > 0 ? String(r.distanceKm) : f.distanceKm,
+          avgSpeedKmh: r.avgSpeedKmh > 0 ? String(r.avgSpeedKmh) : f.avgSpeedKmh,
+        }));
+        if (r.pace) setPace(r.pace);
+        if (r.muscleGroups?.length) setMuscles(r.muscleGroups.filter((m) => MUSCLE_GROUPS.includes(m as (typeof MUSCLE_GROUPS)[number])));
+        toast.success("已辨識，請確認數值");
+      } catch (err) {
+        toast.error("辨識失敗：" + (err instanceof Error ? err.message : "請重試"));
+      } finally {
+        setAnalyzing(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const addExercise = trpc.exercise.add.useMutation({
     onSuccess: () => { toast.success("運動已記錄！"); onSaved(); },
@@ -94,7 +134,7 @@ function ExerciseSheet({
     }
     const cal = fields.caloriesBurned ? num(fields.caloriesBurned) : estimatedCal;
 
-    const details: { strokes?: Record<string, number>; muscleGroups?: string[] } = {};
+    const details: { strokes?: Record<string, number>; muscleGroups?: string[]; pace?: string } = {};
     if (config.strokes) {
       const s: Record<string, number> = {};
       for (const name of SWIM_STROKES) {
@@ -104,6 +144,7 @@ function ExerciseSheet({
       if (Object.keys(s).length) details.strokes = s;
     }
     if (config.muscleGroups && muscles.length) details.muscleGroups = muscles;
+    if (config.pace && pace.trim()) details.pace = pace.trim();
     const detailsStr = Object.keys(details).length ? JSON.stringify(details) : null;
 
     const has = (k: ExerciseNumericField) => config.numeric.includes(k);
@@ -119,10 +160,14 @@ function ExerciseSheet({
       note: note || null,
     };
 
+    const chosenDayStart = dayStartFromInput(dateStr);
     if (isEdit && existing) {
-      updateExercise.mutate({ id: existing.id, ...payload });
+      // Edit keeps midday so the record lands squarely inside the chosen day.
+      updateExercise.mutate({ id: existing.id, ...payload, loggedAt: chosenDayStart + 12 * 60 * 60 * 1000 });
     } else {
-      addExercise.mutate({ ...payload, note: note || undefined, loggedAt: dateMs });
+      // Add embeds current time-of-day so same-day entries stay in order.
+      const timeOfDay = Date.now() - dayStartMs(Date.now());
+      addExercise.mutate({ ...payload, note: note || undefined, loggedAt: chosenDayStart + timeOfDay });
     }
   };
 
@@ -143,6 +188,33 @@ function ExerciseSheet({
 
         <div className="flex-1 overflow-y-auto px-5 pb-8">
           <div className="flex flex-col gap-4">
+            {/* AI screenshot recognition */}
+            <input
+              ref={galleryRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImage(f); e.target.value = ""; }}
+            />
+            <button
+              onClick={() => galleryRef.current?.click()}
+              disabled={analyzing}
+              className="w-full py-3 rounded-2xl border border-primary/40 bg-primary/5 text-primary font-semibold text-sm
+                         active:scale-[0.99] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {analyzing ? <Loader2 size={17} className="animate-spin" /> : <Sparkles size={17} />}
+              {analyzing ? "AI 辨識中..." : "AI 辨識運動截圖（Apple 健身、Strava…）"}
+            </button>
+
+            {/* Date */}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">日期</label>
+              <input
+                type="date"
+                value={dateStr}
+                max={dateInputValue(dayStartMs(Date.now()))}
+                onChange={(e) => setDateStr(e.target.value)}
+                className="w-full h-12 rounded-2xl border border-border bg-muted/30 px-4 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+            </div>
+
             {/* Exercise type */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">運動類型</label>
@@ -218,6 +290,22 @@ function ExerciseSheet({
               </div>
             )}
 
+            {/* Swim average pace */}
+            {config.pace && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  平均配速 <span className="text-primary">(每 100m)</span>
+                </label>
+                <input
+                  type="text"
+                  value={pace}
+                  onChange={(e) => setPace(e.target.value)}
+                  placeholder="例如 2:05"
+                  className="w-full h-12 rounded-2xl border border-border bg-muted/30 px-4 num-display text-foreground placeholder:text-muted-foreground placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            )}
+
             {/* Gym muscle groups */}
             {config.muscleGroups && (
               <div>
@@ -286,6 +374,7 @@ function exerciseSummary(ex: ExerciseRecord): string {
     const total = Object.values(d.strokes).reduce((s, v) => s + v, 0);
     if (total > 0) parts.push(`${total}m`);
   }
+  if (d.pace) parts.push(`${d.pace}/100m`);
   return parts.join(" · ");
 }
 
