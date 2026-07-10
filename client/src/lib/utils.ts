@@ -138,15 +138,18 @@ export interface ExerciseTypeConfig {
   pace?: boolean;         // swimming: average pace (per 100m)
 }
 
-const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "caloriesBurned"];
+const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"];
 
 export const EXERCISE_TYPE_CONFIG: Record<string, ExerciseTypeConfig> = {
-  走路: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
-  騎自行車: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
-  游泳: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], strokes: true, pace: true },
-  健身: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], muscleGroups: true },
+  走路: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  騎自行車: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  游泳: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"], strokes: true, pace: true },
+  健身: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"], muscleGroups: true },
   羽球: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
-  慢跑: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
+  慢跑: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  爬山: { numeric: ["durationMin", "distanceKm", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  籃球: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  有氧運動: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
 };
 
 export function exerciseConfig(type: string): ExerciseTypeConfig {

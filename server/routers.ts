@@ -2,18 +2,23 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+  createProfile,
   deleteFoodLog,
   deleteExerciseLog,
+  deleteProfileAndData,
   deleteWeightLog,
+  getAllProfiles,
   getExerciseLogs,
   getFoodLogs,
   getTodayWeightLog,
+  getUserByOpenId,
   getUserGoals,
   getWeightLogs,
   insertExerciseLog,
   insertFoodLog,
   insertWeightLog,
   updateExerciseLog,
+  updateProfile,
   updateWeightLog,
   upsertUserGoals,
 } from "./db";
@@ -41,6 +46,40 @@ export function dayRange(dayStartMs: number) {
 function serverTodayStartMs() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// Shape of the exercise `details` JSON column.
+interface ExerciseDetails {
+  strokes?: Record<string, number>;
+  muscleGroups?: string[];
+  pace?: string;
+}
+
+function parseDetails(raw: string | null | undefined): ExerciseDetails {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+// Pace "m:ss" (per 100m) → seconds; null if unparseable.
+function paceToSeconds(pace: string): number | null {
+  const m = pace.trim().match(/^(\d+):(\d{1,2})$/);
+  if (!m) return null;
+  const mins = Number(m[1]);
+  const secs = Number(m[2]);
+  if (Number.isNaN(mins) || Number.isNaN(secs)) return null;
+  return mins * 60 + secs;
+}
+
+function secondsToPace(totalSecs: number): string {
+  const rounded = Math.round(totalSecs);
+  const mins = Math.floor(rounded / 60);
+  const secs = rounded % 60;
+  return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
 // ── App Router ────────────────────────────────────────────────────────────────
@@ -73,6 +112,74 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+  }),
+
+  // ── Profiles (multi-account) ──────────────────────────────────────────────────
+  profiles: router({
+    // All profiles on this device, plus which one is currently active.
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const profiles = await getAllProfiles();
+      return { profiles, activeId: ctx.user.id };
+    }),
+
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1).max(20),
+          avatar: z.string().max(16).nullable().optional(),
+          avatarColor: z.string().max(16).nullable().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const created = await createProfile(input);
+        return { success: true, id: created?.id ?? null };
+      }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number().int(),
+          name: z.string().trim().min(1).max(20).optional(),
+          avatar: z.string().max(16).nullable().optional(),
+          avatarColor: z.string().max(16).nullable().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { id, ...fields } = input;
+        await updateProfile(id, fields);
+        return { success: true };
+      }),
+
+    // Switch the active profile by re-signing the session cookie.
+    switch: protectedProcedure
+      .input(z.object({ openId: z.string().min(1) }))
+      .mutation(async ({ ctx, input }) => {
+        const target = await getUserByOpenId(input.openId);
+        if (!target) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "找不到此帳號" });
+        }
+        const token = await signSessionToken(target.openId);
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        return { success: true };
+      }),
+
+    remove: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        if (input.id === ctx.user.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "無法刪除目前使用中的帳號" });
+        }
+        const profiles = await getAllProfiles();
+        if (profiles.length <= 1) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "至少需保留一個帳號" });
+        }
+        if (!profiles.some((p) => p.id === input.id)) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "找不到此帳號" });
+        }
+        await deleteProfileAndData(input.id);
+        return { success: true };
+      }),
   }),
 
   // ── Weight ──────────────────────────────────────────────────────────────────
@@ -410,6 +517,140 @@ export const appRouter = router({
           if (buckets[i]) buckets[i].burned += e.caloriesBurned ?? 0;
         }
         return buckets;
+      }),
+
+    // Per-day exercise presence for a calendar view (marks which days had
+    // exercise, how many sessions, and which types). startMs is the client-local
+    // day start of the first day.
+    exerciseCalendar: protectedProcedure
+      .input(
+        z.object({
+          startMs: z.number(),
+          days: z.number().int().min(1).max(90),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const fromMs = input.startMs;
+        const toMs = input.startMs + input.days * DAY_MS - 1;
+        const exercises = await getExerciseLogs(ctx.user.id, fromMs, toMs);
+
+        const buckets = Array.from({ length: input.days }, (_, i) => ({
+          dateMs: fromMs + i * DAY_MS,
+          count: 0,
+          totalMin: 0,
+          totalBurned: 0,
+          types: [] as string[],
+        }));
+        for (const e of exercises) {
+          const i = Math.floor((e.loggedAt - fromMs) / DAY_MS);
+          const b = buckets[i];
+          if (!b) continue;
+          b.count += 1;
+          b.totalMin += e.durationMin ?? 0;
+          b.totalBurned += e.caloriesBurned ?? 0;
+          if (!b.types.includes(e.exerciseType)) b.types.push(e.exerciseType);
+        }
+        return buckets;
+      }),
+
+    // Distinct exercise types (with session counts) the user has logged in a
+    // range — used to populate the type picker on the charts page.
+    exerciseTypeList: protectedProcedure
+      .input(z.object({ startMs: z.number(), endMs: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const exercises = await getExerciseLogs(ctx.user.id, input.startMs, input.endMs);
+        const counts = new Map<string, number>();
+        for (const e of exercises) {
+          counts.set(e.exerciseType, (counts.get(e.exerciseType) ?? 0) + 1);
+        }
+        return Array.from(counts.entries())
+          .map(([type, count]) => ({ type, count }))
+          .sort((a, b) => b.count - a.count);
+      }),
+
+    // Aggregate statistics for a single exercise type over a range. Parses the
+    // `details` JSON server-side to surface swim stroke distances, gym
+    // muscle-group day counts, and average pace.
+    exerciseSummary: protectedProcedure
+      .input(
+        z.object({
+          exerciseType: z.string().min(1),
+          startMs: z.number(),
+          endMs: z.number(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const all = await getExerciseLogs(ctx.user.id, input.startMs, input.endMs);
+        const logs = all.filter((e) => e.exerciseType === input.exerciseType);
+
+        let totalMin = 0;
+        let totalBurned = 0;
+        let totalDistanceKm = 0;
+        let hrSum = 0;
+        let hrCount = 0;
+        let maxHeartRate = 0;
+        let speedSum = 0;
+        let speedCount = 0;
+        const strokes: Record<string, number> = {};
+        // muscle group → set of day-start ms (count distinct days trained)
+        const muscleDays: Record<string, Set<number>> = {};
+        const paceSecs: number[] = [];
+
+        for (const e of logs) {
+          totalMin += e.durationMin ?? 0;
+          totalBurned += e.caloriesBurned ?? 0;
+          if (e.distanceKm != null) totalDistanceKm += e.distanceKm;
+          if (e.avgHeartRate != null) {
+            hrSum += e.avgHeartRate;
+            hrCount += 1;
+          }
+          if (e.maxHeartRate != null && e.maxHeartRate > maxHeartRate) {
+            maxHeartRate = e.maxHeartRate;
+          }
+          if (e.avgSpeedKmh != null) {
+            speedSum += e.avgSpeedKmh;
+            speedCount += 1;
+          }
+          const details = parseDetails(e.details);
+          if (details.strokes) {
+            for (const [name, meters] of Object.entries(details.strokes)) {
+              if (typeof meters === "number") strokes[name] = (strokes[name] ?? 0) + meters;
+            }
+          }
+          if (details.muscleGroups) {
+            const dayKey = Math.floor(e.loggedAt / DAY_MS);
+            for (const g of details.muscleGroups) {
+              (muscleDays[g] ??= new Set()).add(dayKey);
+            }
+          }
+          if (typeof details.pace === "string") {
+            const secs = paceToSeconds(details.pace);
+            if (secs != null) paceSecs.push(secs);
+          }
+        }
+
+        const strokeMeters = Object.values(strokes).reduce((s, m) => s + m, 0);
+        const avgPaceSecs =
+          paceSecs.length > 0
+            ? paceSecs.reduce((s, v) => s + v, 0) / paceSecs.length
+            : null;
+
+        return {
+          exerciseType: input.exerciseType,
+          count: logs.length,
+          totalMin,
+          totalBurned: Math.round(totalBurned),
+          totalDistanceKm: Math.round(totalDistanceKm * 100) / 100,
+          avgHeartRate: hrCount > 0 ? Math.round(hrSum / hrCount) : null,
+          maxHeartRate: maxHeartRate > 0 ? maxHeartRate : null,
+          avgSpeedKmh: speedCount > 0 ? Math.round((speedSum / speedCount) * 10) / 10 : null,
+          strokes,
+          strokeMeters,
+          muscleGroups: Object.entries(muscleDays)
+            .map(([group, days]) => ({ group, days: days.size }))
+            .sort((a, b) => b.days - a.days),
+          avgPace: avgPaceSecs != null ? secondsToPace(avgPaceSecs) : null,
+        };
       }),
 
     // Full data dump for CSV export.

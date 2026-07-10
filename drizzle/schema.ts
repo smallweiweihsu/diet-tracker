@@ -15,6 +15,8 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
+  avatar: varchar("avatar", { length: 16 }),        // emoji shown as the profile avatar
+  avatarColor: varchar("avatarColor", { length: 16 }), // avatar background color
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

@@ -33,23 +33,27 @@ export function verifyPassword(input: string): boolean {
   return timingSafeEqual(expected, actual);
 }
 
-export async function signSessionToken(): Promise<string> {
+// The active profile is carried in the session JWT's `openId`. A single device
+// (optionally gated by APP_PASSWORD) can hold several profiles and switch
+// between them; each profile is its own row in `users` with isolated data.
+export async function signSessionToken(openId: string = LOCAL_OPEN_ID): Promise<string> {
   const expirationSeconds = Math.floor((Date.now() + ONE_YEAR_MS) / 1000);
-  return new SignJWT({ openId: LOCAL_OPEN_ID })
+  return new SignJWT({ openId })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setExpirationTime(expirationSeconds)
     .sign(getSessionSecret());
 }
 
-async function verifySessionToken(token: string | undefined): Promise<boolean> {
-  if (!token) return false;
+// Returns the openId stored in a valid token, or null if missing/invalid.
+async function readSessionOpenId(token: string | undefined): Promise<string | null> {
+  if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSessionSecret(), {
       algorithms: ["HS256"],
     });
-    return payload.openId === LOCAL_OPEN_ID;
+    return typeof payload.openId === "string" ? payload.openId : null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -66,10 +70,17 @@ export async function ensureLocalUser(): Promise<User | null> {
 }
 
 export async function authenticateRequest(req: Request): Promise<User | null> {
-  // Open mode: no password configured, everyone is the local user.
-  if (!isPasswordRequired()) return ensureLocalUser();
-
   const cookies = parseCookieHeader(req.headers.cookie ?? "");
-  const valid = await verifySessionToken(cookies[COOKIE_NAME]);
-  return valid ? ensureLocalUser() : null;
+  const openId = await readSessionOpenId(cookies[COOKIE_NAME]);
+
+  // With a password gate, a valid session cookie is required to enter.
+  if (isPasswordRequired() && !openId) return null;
+
+  // Resolve the active profile from the cookie; fall back to the default local
+  // profile (open mode with no cookie yet, or a profile that no longer exists).
+  if (openId && openId !== LOCAL_OPEN_ID) {
+    const profile = await db.getUserByOpenId(openId);
+    if (profile) return profile;
+  }
+  return ensureLocalUser();
 }

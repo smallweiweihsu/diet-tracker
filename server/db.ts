@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -64,6 +65,67 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result.length > 0 ? result[0] : undefined;
+}
+
+// ── Profiles (multi-account) ──────────────────────────────────────────────────
+export async function getAllProfiles() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: users.id,
+      openId: users.openId,
+      name: users.name,
+      avatar: users.avatar,
+      avatarColor: users.avatarColor,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(users.id);
+}
+
+export async function createProfile(data: {
+  name: string;
+  avatar?: string | null;
+  avatarColor?: string | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const openId = `profile-${randomUUID()}`;
+  await db.insert(users).values({
+    openId,
+    name: data.name,
+    avatar: data.avatar ?? null,
+    avatarColor: data.avatarColor ?? null,
+    role: "user",
+    lastSignedIn: new Date(),
+  });
+  return getUserByOpenId(openId);
+}
+
+export async function updateProfile(
+  userId: number,
+  fields: { name?: string; avatar?: string | null; avatarColor?: string | null }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const set: Record<string, unknown> = {};
+  if (fields.name !== undefined) set.name = fields.name;
+  if (fields.avatar !== undefined) set.avatar = fields.avatar;
+  if (fields.avatarColor !== undefined) set.avatarColor = fields.avatarColor;
+  if (Object.keys(set).length === 0) return;
+  await db.update(users).set(set).where(eq(users.id, userId));
+}
+
+// Delete a profile and every log/goal that belongs to it.
+export async function deleteProfileAndData(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.delete(weightLogs).where(eq(weightLogs.userId, userId));
+  await db.delete(foodLogs).where(eq(foodLogs.userId, userId));
+  await db.delete(exerciseLogs).where(eq(exerciseLogs.userId, userId));
+  await db.delete(userGoals).where(eq(userGoals.userId, userId));
+  await db.delete(users).where(eq(users.id, userId));
 }
 
 // ── Weight Logs ──────────────────────────────────────────────────────────────

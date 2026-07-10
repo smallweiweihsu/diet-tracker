@@ -1,10 +1,35 @@
 import { useState, useEffect, useMemo } from "react";
-import { User, Target, Moon, Sun, Bell, Download, LogOut, ChevronRight, Check, Calculator } from "lucide-react";
+import { User, Target, Moon, Sun, Bell, Download, LogOut, ChevronRight, Check, Calculator, Plus, Pencil, Trash2, Users } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn, MEAL_LABELS, parseExerciseDetails } from "@/lib/utils";
 import { toast } from "sonner";
+
+// ── Profile avatar presets ──────────────────────────────────────────────────
+const AVATAR_EMOJIS = ["😀", "😎", "🦊", "🐱", "🐻", "🐼", "🦁", "🐯", "🐨", "🐸", "🦄", "🌸", "⚡", "🔥", "💪", "🏃", "🚴", "🏊", "🥗", "🍎"];
+const AVATAR_COLORS = ["#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+
+function ProfileAvatar({
+  avatar, color, size = 64, rounded = "rounded-3xl",
+}: {
+  avatar?: string | null; color?: string | null; size?: number; rounded?: string;
+}) {
+  const c = color || null;
+  return (
+    <div
+      className={cn("flex items-center justify-center shrink-0 leading-none", rounded, !c && "bg-primary/10")}
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.5),
+        ...(c ? { backgroundColor: `${c}22` } : {}),
+      }}
+    >
+      {avatar ? avatar : <User size={Math.round(size * 0.42)} className={!c ? "text-primary" : ""} style={c ? { color: c } : {}} />}
+    </div>
+  );
+}
 
 // Flatten the exercise `details` JSON into a readable CSV cell.
 function exerciseDetailText(raw: string | null | undefined): string {
@@ -301,10 +326,255 @@ function GoalsSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Profile create/edit form ────────────────────────────────────────────────
+function ProfileEditor({
+  initial, onDone, onCancel,
+}: {
+  initial: { id: number; name: string; avatar: string | null; avatarColor: string | null } | null;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const [name, setName] = useState(initial?.name ?? "");
+  const [avatar, setAvatar] = useState<string | null>(initial?.avatar ?? AVATAR_EMOJIS[0]);
+  const [color, setColor] = useState<string | null>(initial?.avatarColor ?? AVATAR_COLORS[0]);
+
+  const createMutation = trpc.profiles.create.useMutation({
+    onSuccess: async () => {
+      await utils.profiles.list.invalidate();
+      toast.success("已新增帳號");
+      onDone();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateMutation = trpc.profiles.update.useMutation({
+    onSuccess: async () => {
+      await Promise.all([utils.profiles.list.invalidate(), utils.auth.me.invalidate()]);
+      toast.success("已更新");
+      onDone();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const pending = createMutation.isPending || updateMutation.isPending;
+
+  const handleSave = () => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error("請輸入名稱");
+      return;
+    }
+    if (initial) {
+      updateMutation.mutate({ id: initial.id, name: trimmed, avatar, avatarColor: color });
+    } else {
+      createMutation.mutate({ name: trimmed, avatar, avatarColor: color });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex justify-center">
+        <ProfileAvatar avatar={avatar} color={color} size={72} />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">帳號名稱</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="輸入名稱"
+          maxLength={20}
+          autoFocus
+          className="w-full h-12 rounded-2xl border border-border bg-muted/30 px-4 text-foreground
+                     placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+        />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">頭貼</label>
+        <div className="grid grid-cols-8 gap-1.5">
+          {AVATAR_EMOJIS.map((e) => (
+            <button
+              key={e}
+              onClick={() => setAvatar(e)}
+              className={cn(
+                "aspect-square rounded-xl flex items-center justify-center text-lg transition-all",
+                avatar === e ? "bg-primary/15 ring-2 ring-primary" : "bg-muted/40"
+              )}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">顏色</label>
+        <div className="flex gap-2 flex-wrap">
+          {AVATAR_COLORS.map((c) => (
+            <button
+              key={c}
+              onClick={() => setColor(c)}
+              className={cn(
+                "w-8 h-8 rounded-full transition-all",
+                color === c ? "ring-2 ring-offset-2 ring-offset-card ring-foreground scale-110" : ""
+              )}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 mt-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 h-12 rounded-full border border-border text-muted-foreground font-semibold active:scale-[0.98] transition-all"
+        >
+          取消
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={pending}
+          className="flex-1 h-12 rounded-full bg-primary text-primary-foreground font-bold
+                     shadow-lg shadow-primary/30 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+        >
+          <Check size={18} />
+          {pending ? "儲存中..." : "儲存"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Account switcher sheet ──────────────────────────────────────────────────
+function ProfilesSheet({ onClose }: { onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const { data } = trpc.profiles.list.useQuery();
+  // null = list view; "new" = create form; number = edit that profile.
+  const [editing, setEditing] = useState<"new" | number | null>(null);
+
+  const switchMutation = trpc.profiles.switch.useMutation({
+    onSuccess: async () => {
+      // Active user changed server-side — refetch everything.
+      await utils.invalidate();
+      toast.success("已切換帳號");
+      onClose();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const removeMutation = trpc.profiles.remove.useMutation({
+    onSuccess: async () => {
+      await utils.profiles.list.invalidate();
+      toast.success("已刪除帳號");
+      setEditing(null);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const profiles = data?.profiles ?? [];
+  const activeId = data?.activeId;
+  const editingProfile =
+    typeof editing === "number" ? profiles.find((p) => p.id === editing) ?? null : null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full bg-card rounded-t-3xl shadow-2xl animate-slide-up max-h-[90dvh] flex flex-col max-w-[430px]"
+           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-border" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 shrink-0">
+          <h2 className="text-lg font-bold text-foreground">
+            {editing === "new" ? "新增帳號" : editingProfile ? "編輯帳號" : "切換帳號"}
+          </h2>
+          <button
+            onClick={editing !== null ? () => setEditing(null) : onClose}
+            className="text-muted-foreground text-sm"
+          >
+            {editing !== null ? "返回" : "關閉"}
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 pb-8">
+          {editing !== null ? (
+            <ProfileEditor
+              initial={
+                editingProfile
+                  ? {
+                      id: editingProfile.id,
+                      name: editingProfile.name ?? "",
+                      avatar: editingProfile.avatar,
+                      avatarColor: editingProfile.avatarColor,
+                    }
+                  : null
+              }
+              onDone={() => setEditing(null)}
+              onCancel={() => setEditing(null)}
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {profiles.map((p) => {
+                const isActive = p.id === activeId;
+                return (
+                  <div
+                    key={p.id}
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-2xl border transition-all",
+                      isActive ? "border-primary bg-primary/5" : "border-border"
+                    )}
+                  >
+                    <button
+                      className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:opacity-100"
+                      disabled={isActive || switchMutation.isPending}
+                      onClick={() => switchMutation.mutate({ openId: p.openId })}
+                    >
+                      <ProfileAvatar avatar={p.avatar} color={p.avatarColor} size={44} rounded="rounded-2xl" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{p.name ?? "未命名"}</p>
+                        {isActive ? (
+                          <p className="text-xs text-primary font-medium">使用中</p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">點擊切換</p>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setEditing(p.id)}
+                      className="w-9 h-9 rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground active:scale-95 transition-all shrink-0"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    {!isActive && profiles.length > 1 && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`刪除「${p.name ?? "此帳號"}」？此帳號的所有記錄都會一併刪除。`)) {
+                            removeMutation.mutate({ id: p.id });
+                          }
+                        }}
+                        className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center text-destructive active:scale-95 transition-all shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              <button
+                onClick={() => setEditing("new")}
+                className="flex items-center justify-center gap-2 p-3 rounded-2xl border border-dashed border-border text-muted-foreground font-semibold active:scale-[0.99] transition-all mt-1"
+              >
+                <Plus size={18} />
+                新增帳號
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Profile() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [showGoals, setShowGoals] = useState(false);
+  const [showProfiles, setShowProfiles] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { data: goals } = trpc.goals.get.useQuery();
   const utils = trpc.useUtils();
@@ -376,16 +646,20 @@ export default function Profile() {
       </div>
 
       <div className="px-4 flex flex-col gap-3">
-        {/* Profile card */}
-        <div className="dt-card flex items-center gap-4">
-          <div className="w-16 h-16 rounded-3xl bg-primary/10 flex items-center justify-center shrink-0">
-            <User size={28} className="text-primary" />
-          </div>
+        {/* Profile card — tap to switch account */}
+        <button
+          onClick={() => setShowProfiles(true)}
+          className="dt-card flex items-center gap-4 w-full text-left active:scale-[0.99] transition-transform duration-150"
+        >
+          <ProfileAvatar avatar={user?.avatar} color={user?.avatarColor} size={64} />
           <div className="flex-1 min-w-0">
             <p className="font-bold text-foreground text-base truncate">{user?.name ?? "使用者"}</p>
-            <p className="text-xs text-muted-foreground truncate">{user?.email ?? ""}</p>
+            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+              <Users size={12} /> 切換帳號
+            </p>
           </div>
-        </div>
+          <ChevronRight size={18} className="text-muted-foreground shrink-0" />
+        </button>
 
         {/* Goals summary */}
         {goals && (
@@ -462,6 +736,7 @@ export default function Profile() {
       </div>
 
       {showGoals && <GoalsSheet onClose={() => setShowGoals(false)} />}
+      {showProfiles && <ProfilesSheet onClose={() => setShowProfiles(false)} />}
     </div>
   );
 }

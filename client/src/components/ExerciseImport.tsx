@@ -53,8 +53,21 @@ export default function ExerciseImport({
   const fileRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(1);
 
-  const analyzeImage = trpc.exercise.analyzeImage.useMutation();
+  // Vanilla tRPC client — reliable for a sequential analyze loop (a single
+  // useMutation object reused across many awaited calls can race).
+  const trpcClient = trpc.useUtils().client;
   const addExercise = trpc.exercise.add.useMutation();
+
+  // Two drafts are "the same workout" if their core numbers match — used to
+  // drop duplicate screenshots of one workout so 11 images of 3 workouts
+  // don't become 11 rows.
+  const sameWorkout = (a: Omit<Draft, "id">, b: Draft) =>
+    a.exerciseType === b.exerciseType &&
+    a.dateStr === b.dateStr &&
+    a.durationMin === b.durationMin &&
+    a.caloriesBurned === b.caloriesBurned &&
+    (a.distanceKm ?? 0) === (b.distanceKm ?? 0) &&
+    (a.avgHeartRate ?? 0) === (b.avgHeartRate ?? 0);
 
   const readAsBase64 = (file: File) =>
     new Promise<{ base64: string; mime: string }>((resolve, reject) => {
@@ -73,29 +86,33 @@ export default function ExerciseImport({
     setProgress({ done: 0, total: list.length });
     const today = dateInputValue(dayStartMs(Date.now()));
     let failed = 0;
+    let skipped = 0;
 
     for (const file of list) {
       try {
         const { base64, mime } = await readAsBase64(file);
-        const r = await analyzeImage.mutateAsync({ imageBase64: base64, mimeType: mime });
+        const r = await trpcClient.exercise.analyzeImage.mutate({ imageBase64: base64, mimeType: mime });
         const type = EXERCISE_TYPES.includes(r.exerciseType) ? r.exerciseType : "其他";
         const est = Math.round((r.durationMin || 0) * (EXERCISE_CALORIE_PER_MIN[type] ?? 5));
-        setDrafts((prev) => [
-          ...prev,
-          {
-            id: nextId.current++,
-            exerciseType: type,
-            dateStr: /^\d{4}-\d{2}-\d{2}$/.test(r.dateText) ? r.dateText : today,
-            durationMin: r.durationMin > 0 ? String(Math.round(r.durationMin)) : "",
-            caloriesBurned: r.caloriesBurned > 0 ? String(Math.round(r.caloriesBurned)) : String(est),
-            avgHeartRate: r.avgHeartRate > 0 ? Math.round(r.avgHeartRate) : null,
-            maxHeartRate: r.maxHeartRate > 0 ? Math.round(r.maxHeartRate) : null,
-            distanceKm: r.distanceKm > 0 ? r.distanceKm : null,
-            avgSpeedKmh: r.avgSpeedKmh > 0 ? r.avgSpeedKmh : null,
-            pace: r.pace || "",
-            muscleGroups: r.muscleGroups ?? [],
-          },
-        ]);
+        const draft: Omit<Draft, "id"> = {
+          exerciseType: type,
+          dateStr: /^\d{4}-\d{2}-\d{2}$/.test(r.dateText) ? r.dateText : today,
+          durationMin: r.durationMin > 0 ? String(Math.round(r.durationMin)) : "",
+          caloriesBurned: r.caloriesBurned > 0 ? String(Math.round(r.caloriesBurned)) : String(est),
+          avgHeartRate: r.avgHeartRate > 0 ? Math.round(r.avgHeartRate) : null,
+          maxHeartRate: r.maxHeartRate > 0 ? Math.round(r.maxHeartRate) : null,
+          distanceKm: r.distanceKm > 0 ? r.distanceKm : null,
+          avgSpeedKmh: r.avgSpeedKmh > 0 ? r.avgSpeedKmh : null,
+          pace: r.pace || "",
+          muscleGroups: r.muscleGroups ?? [],
+        };
+        // Skip duplicate screenshots of the same workout.
+        let isDup = false;
+        setDrafts((prev) => {
+          if (prev.some((d) => sameWorkout(draft, d))) { isDup = true; return prev; }
+          return [...prev, { id: nextId.current++, ...draft }];
+        });
+        if (isDup) skipped++;
       } catch {
         failed++;
       }
@@ -103,6 +120,7 @@ export default function ExerciseImport({
     }
 
     setAnalyzing(false);
+    if (skipped > 0) toast.info(`已略過 ${skipped} 張重複的截圖`);
     if (failed > 0) toast.error(`${failed} 張辨識失敗，已略過`);
   };
 
@@ -121,6 +139,7 @@ export default function ExerciseImport({
     setSaving(true);
     try {
       const timeOfDay = Date.now() - dayStartMs(Date.now());
+      let i = 0;
       for (const d of valid) {
         const details: { pace?: string; muscleGroups?: string[] } = {};
         if (d.exerciseType === "游泳" && d.pace) details.pace = d.pace;
@@ -134,8 +153,10 @@ export default function ExerciseImport({
           distanceKm: d.distanceKm,
           avgSpeedKmh: d.avgSpeedKmh,
           details: Object.keys(details).length ? JSON.stringify(details) : null,
-          loggedAt: dayStartFromInput(d.dateStr) + timeOfDay,
+          // +i seconds keeps same-day rows distinct and ordered.
+          loggedAt: dayStartFromInput(d.dateStr) + timeOfDay + i * 1000,
         });
+        i++;
       }
       toast.success(`已匯入 ${valid.length} 筆運動`, { duration: 3500 });
       onSaved();
