@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, Camera, Image as ImageIcon, PencilLine, Check, Loader2, Plus } from "lucide-react";
+import { X, Camera, Image as ImageIcon, PencilLine, Check, Loader2, Plus, Sparkles } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn, MEAL_LABELS } from "@/lib/utils";
@@ -52,32 +52,46 @@ interface Props {
 
 type Step = "capture" | "analyzing" | "confirm";
 
+type AnalyzedFood = {
+  name: string; quantity: number; unit: string; calories: number;
+  proteinG: number; carbsG: number; fatG: number;
+  sugarG?: number; saturatedFatG?: number; fiberG?: number; sodiumMg?: number;
+};
+
+function toDrafts(items: AnalyzedFood[]): FoodDraft[] {
+  return items.map((f) => ({
+    name: f.name,
+    quantity: String(f.quantity),
+    unit: f.unit,
+    calories: String(Math.round(f.calories)),
+    proteinG: String(Math.round(f.proteinG)),
+    carbsG: String(Math.round(f.carbsG)),
+    fatG: String(Math.round(f.fatG)),
+    sugarG: String(Math.round(f.sugarG ?? 0)),
+    saturatedFatG: String(Math.round(f.saturatedFatG ?? 0)),
+    fiberG: String(Math.round(f.fiberG ?? 0)),
+    sodiumMg: String(Math.round(f.sodiumMg ?? 0)),
+  }));
+}
+
 export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
   const [step, setStep] = useState<Step>("capture");
   const [preview, setPreview] = useState<string | null>(null);
   const [foods, setFoods] = useState<FoodDraft[]>([]);
+  const [description, setDescription] = useState("");
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
   const analyze = trpc.food.analyzeImage.useMutation({
-    onSuccess: (data) => {
-      setFoods(
-        data.foods.map((f) => ({
-          name: f.name,
-          quantity: String(f.quantity),
-          unit: f.unit,
-          calories: String(Math.round(f.calories)),
-          proteinG: String(Math.round(f.proteinG)),
-          carbsG: String(Math.round(f.carbsG)),
-          fatG: String(Math.round(f.fatG)),
-          sugarG: String(Math.round(f.sugarG ?? 0)),
-          saturatedFatG: String(Math.round(f.saturatedFatG ?? 0)),
-          fiberG: String(Math.round(f.fiberG ?? 0)),
-          sodiumMg: String(Math.round(f.sodiumMg ?? 0)),
-        }))
-      );
-      setStep("confirm");
+    onSuccess: (data) => { setFoods(toDrafts(data.foods)); setStep("confirm"); },
+    onError: (e) => {
+      toast.error("分析失敗：" + e.message);
+      setStep("capture");
     },
+  });
+
+  const analyzeText = trpc.food.analyzeText.useMutation({
+    onSuccess: (data) => { setFoods(toDrafts(data.foods)); setStep("confirm"); },
     onError: (e) => {
       toast.error("分析失敗：" + e.message);
       setStep("capture");
@@ -97,6 +111,13 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
       analyze.mutate({ imageBase64: base64, mimeType: mime });
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleAskText = () => {
+    if (!description.trim()) return;
+    setPreview(null);
+    setStep("analyzing");
+    analyzeText.mutate({ text: description.trim() });
   };
 
   const startManual = () => {
@@ -132,6 +153,8 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
           })
         )
       );
+      const cal = Math.round(validFoods.reduce((s, f) => s + num(f.calories), 0));
+      toast.success(`已儲存 ${validFoods.length} 項食物 · 共 ${cal} kcal`, { duration: 3500 });
       onSaved();
     } catch {
       toast.error("儲存失敗，請重試");
@@ -174,13 +197,38 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
         <div className="flex-1 overflow-y-auto px-5 pb-6">
           {/* Step: Capture */}
           {step === "capture" && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center">
-                <Camera size={36} className="text-primary" />
+            <div className="flex flex-col items-center gap-3 py-2">
+              {/* Describe to AI */}
+              <div className="w-full rounded-2xl border border-primary/30 bg-primary/5 p-3">
+                <label className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                  <Sparkles size={14} className="text-primary" />
+                  用文字描述給 AI
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="例如：一個排骨便當、一杯半糖珍奶"
+                  rows={2}
+                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground
+                             placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+                <button
+                  onClick={handleAskText}
+                  disabled={!description.trim()}
+                  className="w-full mt-2 py-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-sm
+                             active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Sparkles size={16} />
+                  問 AI 並辨識
+                </button>
               </div>
-              <p className="text-sm text-muted-foreground text-center mb-1">
-                拍攝食物或營養標示，AI 自動辨識營養成分；也可以手動輸入
-              </p>
+
+              <div className="flex items-center gap-3 w-full my-1">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-[11px] text-muted-foreground">或用照片 / 手動</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+
               <input
                 ref={cameraRef} type="file" accept="image/*" capture="environment"
                 className="hidden"
@@ -191,29 +239,30 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
               />
-              <button
-                onClick={() => cameraRef.current?.click()}
-                className="w-full py-3.5 rounded-full bg-primary text-primary-foreground font-bold text-base
-                           shadow-lg shadow-primary/30 active:scale-[0.98] transition-all duration-150
-                           flex items-center justify-center gap-2"
-              >
-                <Camera size={19} />
-                拍照辨識
-              </button>
-              <button
-                onClick={() => galleryRef.current?.click()}
-                className="w-full py-3.5 rounded-full border border-primary/40 text-primary font-bold text-base
-                           active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
-              >
-                <ImageIcon size={19} />
-                從相簿選擇
-              </button>
+              <div className="grid grid-cols-2 gap-2 w-full">
+                <button
+                  onClick={() => cameraRef.current?.click()}
+                  className="py-3 rounded-2xl bg-primary/10 text-primary font-semibold text-sm
+                             active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+                >
+                  <Camera size={17} />
+                  拍照
+                </button>
+                <button
+                  onClick={() => galleryRef.current?.click()}
+                  className="py-3 rounded-2xl bg-primary/10 text-primary font-semibold text-sm
+                             active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
+                >
+                  <ImageIcon size={17} />
+                  相簿
+                </button>
+              </div>
               <button
                 onClick={startManual}
-                className="w-full py-3.5 rounded-full border border-border text-foreground font-medium text-base
-                           active:scale-[0.98] transition-all duration-150 flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-2xl border border-border text-foreground font-medium text-sm
+                           active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
-                <PencilLine size={18} />
+                <PencilLine size={17} />
                 手動輸入營養成分
               </button>
             </div>

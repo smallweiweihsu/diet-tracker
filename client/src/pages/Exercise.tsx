@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import ExerciseImport from "@/components/ExerciseImport";
 import {
   cn, formatNum, dayStartMs, addDays, dateInputValue, dayStartFromInput,
   EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
@@ -381,6 +382,7 @@ function exerciseSummary(ex: ExerciseRecord): string {
 export default function Exercise() {
   const [dateMs, setDateMs] = useState(() => dayStartMs(Date.now()));
   const [showAdd, setShowAdd] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ExerciseRecord | null>(null);
   const utils = trpc.useUtils();
 
@@ -462,14 +464,24 @@ export default function Exercise() {
         <div>
           <div className="flex items-center justify-between mb-2 px-0.5">
             <h2 className="text-sm font-semibold text-foreground">{isToday ? "今日運動" : "當日運動"}</h2>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold
-                         shadow-sm shadow-primary/30 active:scale-95 transition-all"
-            >
-              <Plus size={14} />
-              新增
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-primary/40 text-primary text-xs font-semibold
+                           active:scale-95 transition-all"
+              >
+                <Sparkles size={13} />
+                AI 匯入
+              </button>
+              <button
+                onClick={() => setShowAdd(true)}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold
+                           shadow-sm shadow-primary/30 active:scale-95 transition-all"
+              >
+                <Plus size={14} />
+                新增
+              </button>
+            </div>
           </div>
 
           {exercises.length === 0 ? (
@@ -534,6 +546,12 @@ export default function Exercise() {
           existing={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { invalidate(); setEditing(null); }}
+        />
+      )}
+      {showImport && (
+        <ExerciseImport
+          onClose={() => setShowImport(false)}
+          onSaved={() => { invalidate(); setShowImport(false); }}
         />
       )}
     </div>

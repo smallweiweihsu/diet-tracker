@@ -288,7 +288,6 @@ export default function Dashboard() {
             utils.food.byDate.invalidate();
             utils.stats.daily.invalidate();
             setCameraForMeal(null);
-            toast.success("已成功記錄飲食！");
           }}
         />
       )}

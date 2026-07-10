@@ -137,6 +137,54 @@ export async function analyzeFoodImage(
   }
 }
 
+// ── Food text description analysis ─────────────────────────────────────────────
+export async function analyzeFoodText(text: string): Promise<FoodAnalysisResult> {
+  if (!ENV.anthropicApiKey) {
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message: "尚未設定 ANTHROPIC_API_KEY，無法使用 AI 辨識功能",
+    });
+  }
+
+  const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
+
+  const response = await client.messages.create({
+    model: ENV.anthropicModel,
+    max_tokens: 4096,
+    system:
+      "你是一位專業的營養師。使用者會用文字描述他吃了什麼，請辨識所有食物，以合理的常見份量估算每項食物的營養成分：熱量、蛋白質、碳水化合物、脂肪、糖、飽和脂肪、膳食纖維、鈉。所有名稱使用繁體中文。",
+    messages: [
+      {
+        role: "user",
+        content: `我吃了：${text}。請估算營養成分。`,
+      },
+    ],
+    output_config: {
+      format: {
+        type: "json_schema",
+        schema: FOOD_ANALYSIS_SCHEMA,
+      },
+    },
+  });
+
+  if (response.stop_reason === "refusal") {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "AI 無法理解這段描述，請換個說法再試" });
+  }
+
+  const textBlock = response.content.find(
+    (b): b is Extract<(typeof response.content)[number], { type: "text" }> => b.type === "text"
+  );
+  if (!textBlock) {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI 分析沒有回傳結果，請重試" });
+  }
+
+  try {
+    return JSON.parse(textBlock.text) as FoodAnalysisResult;
+  } catch {
+    throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "AI 分析結果解析失敗，請重試" });
+  }
+}
+
 // ── Workout screenshot analysis ────────────────────────────────────────────────
 export interface WorkoutAnalysisResult {
   exerciseType: string;      // one of the app's types (see prompt)
@@ -148,6 +196,7 @@ export interface WorkoutAnalysisResult {
   avgSpeedKmh: number;       // 0 if not applicable
   pace: string;              // "" if not applicable, e.g. "2:05" (per 100m / per km)
   muscleGroups: string[];    // gym only, subset of 胸/背/腿/肩/手臂/核心
+  dateText: string;          // "" if not shown, else YYYY-MM-DD read from screenshot
 }
 
 const WORKOUT_ANALYSIS_SCHEMA = {
@@ -170,10 +219,14 @@ const WORKOUT_ANALYSIS_SCHEMA = {
       items: { type: "string" },
       description: "健身時的訓練部位，只從 胸/背/腿/肩/手臂/核心 中選；其他運動填空陣列",
     },
+    dateText: {
+      type: "string",
+      description: "截圖上顯示的運動日期，轉成 YYYY-MM-DD（例如 2026-07-10）；若截圖沒有日期則填空字串",
+    },
   },
   required: [
     "exerciseType", "durationMin", "caloriesBurned", "avgHeartRate",
-    "maxHeartRate", "distanceKm", "avgSpeedKmh", "pace", "muscleGroups",
+    "maxHeartRate", "distanceKm", "avgSpeedKmh", "pace", "muscleGroups", "dateText",
   ],
   additionalProperties: false,
 } as const;

@@ -188,7 +188,6 @@ export default function FoodDiary() {
             utils.food.byDate.invalidate();
             utils.stats.daily.invalidate();
             setCameraForMeal(null);
-            toast.success("已成功記錄飲食！");
           }}
         />
       )}

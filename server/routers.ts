@@ -23,7 +23,7 @@ import {
   signSessionToken,
   verifyPassword,
 } from "./_core/auth";
-import { analyzeFoodImage, analyzeWorkoutImage } from "./ai";
+import { analyzeFoodImage, analyzeFoodText, analyzeWorkoutImage } from "./ai";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 
@@ -189,6 +189,13 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         const result = await analyzeFoodImage(input.imageBase64, input.mimeType);
+        return { ...result, imageUrl: "" };
+      }),
+
+    analyzeText: protectedProcedure
+      .input(z.object({ text: z.string().min(1).max(500) }))
+      .mutation(async ({ input }) => {
+        const result = await analyzeFoodText(input.text);
         return { ...result, imageUrl: "" };
       }),
   }),
