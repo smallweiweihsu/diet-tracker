@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { ensureLocalUser } from "./_core/auth";
-import { getExerciseLogs, insertExerciseLog } from "./db";
+import { getExerciseLogs, insertExerciseLog, updateExerciseLog } from "./db";
 
 // Receives workouts pushed from an iOS Shortcut (Apple Watch / 健康 App data).
 // Auth: Authorization: Bearer <HEALTH_SYNC_TOKEN>.
@@ -121,6 +121,7 @@ export function registerHealthSync(app: Express) {
     }
 
     let imported = 0;
+    let updated = 0;
     let skipped = 0;
     const errors: string[] = [];
 
@@ -131,6 +132,7 @@ export function registerHealthSync(app: Express) {
       if (caloriesBurned <= 0 && durationMin > 0) {
         caloriesBurned = Math.round(durationMin * (CAL_PER_MIN[type] ?? 5));
       }
+      const hasStart = parseStart(w.start) !== null;
       const loggedAt = parseStart(w.start) ?? Date.now();
 
       if (!type || durationMin <= 0) {
@@ -138,16 +140,28 @@ export function registerHealthSync(app: Express) {
         continue;
       }
 
-      // Dedup: same type starting within ±3 minutes counts as already imported.
       const dayStart = loggedAt - 12 * 60 * 60 * 1000;
       const dayEnd = loggedAt + 12 * 60 * 60 * 1000;
       const existing = await getExerciseLogs(user.id, dayStart, dayEnd);
-      const dup = existing.some(
-        (e) => e.exerciseType === type && Math.abs(e.loggedAt - loggedAt) < 3 * 60 * 1000
-      );
-      if (dup) {
-        skipped++;
-        continue;
+
+      if (!hasStart) {
+        // Daily-summary mode (no start time): one synced entry per type per
+        // day — re-running the shortcut refreshes the totals in place.
+        const prev = existing.find((e) => e.exerciseType === type && e.note === SYNC_NOTE);
+        if (prev) {
+          await updateExerciseLog(prev.id, user.id, { durationMin, caloriesBurned });
+          updated++;
+          continue;
+        }
+      } else {
+        // Per-workout mode: same type starting within ±3 minutes = duplicate.
+        const dup = existing.some(
+          (e) => e.exerciseType === type && Math.abs(e.loggedAt - loggedAt) < 3 * 60 * 1000
+        );
+        if (dup) {
+          skipped++;
+          continue;
+        }
       }
 
       await insertExerciseLog({
@@ -161,7 +175,7 @@ export function registerHealthSync(app: Express) {
       imported++;
     }
 
-    res.json({ imported, skipped, errors });
+    res.json({ imported, updated, skipped, errors });
   };
   app.post("/api/health/sync", handler);
   app.get("/api/health/sync", handler);

@@ -183,6 +183,19 @@ export async function getExerciseLogs(userId: number, dayStartMs: number, dayEnd
     .orderBy(exerciseLogs.loggedAt);
 }
 
+export async function updateExerciseLog(
+  id: number,
+  userId: number,
+  fields: { durationMin?: number; caloriesBurned?: number }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(exerciseLogs)
+    .set(fields)
+    .where(and(eq(exerciseLogs.id, id), eq(exerciseLogs.userId, userId)));
+}
+
 export async function deleteExerciseLog(id: number, userId: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
