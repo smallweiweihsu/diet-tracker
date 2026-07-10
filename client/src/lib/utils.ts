@@ -61,34 +61,99 @@ export const MEAL_ICONS: Record<string, string> = {
 };
 
 export const EXERCISE_TYPES = [
-  "慢跑",
-  "快走",
-  "游泳",
+  "走路",
   "騎自行車",
-  "重量訓練",
+  "游泳",
+  "健身",
+  "羽球",
+  "慢跑",
   "瑜珈",
-  "有氧運動",
-  "跳繩",
   "爬山",
   "籃球",
-  "足球",
-  "羽球",
+  "跳繩",
+  "有氧運動",
   "其他",
 ];
 
 // Rough calorie burn estimates per minute
 export const EXERCISE_CALORIE_PER_MIN: Record<string, number> = {
-  慢跑: 8,
-  快走: 5,
-  游泳: 9,
+  走路: 5,
   騎自行車: 6,
-  重量訓練: 5,
+  游泳: 9,
+  健身: 5,
+  羽球: 7,
+  慢跑: 8,
   瑜珈: 3,
-  有氧運動: 7,
-  跳繩: 10,
   爬山: 7,
   籃球: 8,
-  足球: 8,
-  羽球: 7,
+  跳繩: 10,
+  有氧運動: 7,
   其他: 5,
 };
+
+// ── Per-type exercise form fields ──────────────────────────────────────────────
+// Each exercise type shows a tailored set of inputs. `numeric` fields map to
+// dedicated DB columns; `strokes` (swim stroke distances) and `muscleGroups`
+// (gym body parts) are stored in the JSON `details` column.
+export type ExerciseNumericField =
+  | "durationMin"
+  | "caloriesBurned"
+  | "avgHeartRate"
+  | "maxHeartRate"
+  | "distanceKm"
+  | "avgSpeedKmh";
+
+export interface ExerciseFieldConfig {
+  label: string;
+  unit: string;
+  decimal?: boolean;
+}
+
+export const EXERCISE_NUMERIC_LABELS: Record<ExerciseNumericField, ExerciseFieldConfig> = {
+  durationMin: { label: "時間", unit: "分鐘" },
+  caloriesBurned: { label: "總熱量", unit: "kcal" },
+  avgHeartRate: { label: "平均心律", unit: "bpm" },
+  maxHeartRate: { label: "最大心律", unit: "bpm" },
+  distanceKm: { label: "距離", unit: "km", decimal: true },
+  avgSpeedKmh: { label: "平均速度", unit: "km/h", decimal: true },
+};
+
+export interface ExerciseTypeConfig {
+  numeric: ExerciseNumericField[];
+  strokes?: boolean;      // swimming: distance per stroke style
+  muscleGroups?: boolean; // gym: which body parts trained
+}
+
+const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "caloriesBurned"];
+
+export const EXERCISE_TYPE_CONFIG: Record<string, ExerciseTypeConfig> = {
+  走路: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
+  騎自行車: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
+  游泳: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], strokes: true },
+  健身: { numeric: ["durationMin", "avgHeartRate", "caloriesBurned"], muscleGroups: true },
+  羽球: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
+  慢跑: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "caloriesBurned"] },
+};
+
+export function exerciseConfig(type: string): ExerciseTypeConfig {
+  return EXERCISE_TYPE_CONFIG[type] ?? { numeric: BASE_FIELDS };
+}
+
+export const SWIM_STROKES = ["自由式", "蛙式", "仰式", "蝶式"] as const;
+export const MUSCLE_GROUPS = ["胸", "背", "腿", "肩", "手臂", "核心"] as const;
+
+// Shape stored in the `details` JSON column.
+export interface ExerciseDetails {
+  strokes?: Record<string, number>;   // stroke name → distance (m)
+  muscleGroups?: string[];
+}
+
+export function parseExerciseDetails(raw: string | null | undefined): ExerciseDetails {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch {
+    return {};
+  }
+}

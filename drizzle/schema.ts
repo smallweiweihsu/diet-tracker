@@ -68,6 +68,13 @@ export const exerciseLogs = mysqlTable("exercise_logs", {
   exerciseType: varchar("exerciseType", { length: 100 }).notNull(),
   durationMin: int("durationMin").notNull().default(0),
   caloriesBurned: float("caloriesBurned").default(0),
+  avgHeartRate: int("avgHeartRate"),
+  maxHeartRate: int("maxHeartRate"),
+  distanceKm: float("distanceKm"),
+  avgSpeedKmh: float("avgSpeedKmh"),
+  // JSON blob for type-specific extras: swim stroke distances, gym muscle
+  // groups, etc. Kept flexible so new exercise types need no schema change.
+  details: text("details"),
   note: text("note"),
   loggedAt: bigint("loggedAt", { mode: "number" }).notNull(), // UTC ms timestamp
   createdAt: timestamp("createdAt").defaultNow().notNull(),

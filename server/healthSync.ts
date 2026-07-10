@@ -11,18 +11,18 @@ const SYNC_NOTE = "Apple Watch 同步";
 // kcal/min estimates per app type — fallback when the Shortcut can't supply
 // active energy (mirrors the client's manual-entry estimator).
 const CAL_PER_MIN: Record<string, number> = {
-  慢跑: 8, 快走: 5, 游泳: 9, 騎自行車: 6, 重量訓練: 5, 瑜珈: 3,
+  慢跑: 8, 走路: 5, 游泳: 9, 騎自行車: 6, 健身: 5, 瑜珈: 3,
   有氧運動: 7, 跳繩: 10, 爬山: 7, 籃球: 8, 足球: 8, 羽球: 7,
 };
 
 // Map Apple workout type names (English & Chinese variants) to the app's types.
 const TYPE_MAP: Record<string, string> = {
   running: "慢跑", 跑步: "慢跑", 戶外跑步: "慢跑", 室內跑步: "慢跑",
-  walking: "快走", 步行: "快走", 健走: "快走", 戶外步行: "快走", 室內步行: "快走",
-  cycling: "騎自行車", 騎乘: "騎自行車", 自行車: "騎自行車", 戶外騎乘: "騎自行車", 室內騎乘: "騎自行車",
+  walking: "走路", 步行: "走路", 健走: "走路", 快走: "走路", 戶外步行: "走路", 室內步行: "走路",
+  cycling: "騎自行車", 騎乘: "騎自行車", 自行車: "騎自行車", 腳踏車: "騎自行車", 戶外騎乘: "騎自行車", 室內騎乘: "騎自行車",
   swimming: "游泳", 游泳: "游泳", 泳池游泳: "游泳", 開放水域游泳: "游泳",
-  "traditional strength training": "重量訓練", "functional strength training": "重量訓練",
-  傳統肌力訓練: "重量訓練", 功能性肌力訓練: "重量訓練", 肌力訓練: "重量訓練",
+  "traditional strength training": "健身", "functional strength training": "健身",
+  傳統肌力訓練: "健身", 功能性肌力訓練: "健身", 肌力訓練: "健身", 重量訓練: "健身",
   yoga: "瑜珈", 瑜伽: "瑜珈", 瑜珈: "瑜珈",
   "high intensity interval training": "有氧運動", 高強度間歇訓練: "有氧運動", hiit: "有氧運動",
   elliptical: "有氧運動", 橢圓機: "有氧運動", 有氧: "有氧運動",

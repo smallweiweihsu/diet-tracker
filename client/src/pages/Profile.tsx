@@ -3,8 +3,20 @@ import { User, Target, Moon, Sun, Bell, Download, LogOut, ChevronRight, Check, C
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
-import { cn, MEAL_LABELS } from "@/lib/utils";
+import { cn, MEAL_LABELS, parseExerciseDetails } from "@/lib/utils";
 import { toast } from "sonner";
+
+// Flatten the exercise `details` JSON into a readable CSV cell.
+function exerciseDetailText(raw: string | null | undefined): string {
+  const d = parseExerciseDetails(raw);
+  const parts: string[] = [];
+  if (d.muscleGroups?.length) parts.push(`部位:${d.muscleGroups.join("/")}`);
+  if (d.strokes) {
+    const s = Object.entries(d.strokes).map(([k, v]) => `${k}${v}m`).join(" ");
+    if (s) parts.push(s);
+  }
+  return parts.join("；");
+}
 
 function csvEscape(value: unknown): string {
   const s = String(value ?? "");
@@ -330,9 +342,11 @@ export default function Profile() {
         "",
         "=== 運動記錄 ===",
         toCsvRows(
-          ["日期", "運動類型", "時間(分鐘)", "消耗熱量(kcal)", "備註"],
+          ["日期", "運動類型", "時間(分鐘)", "消耗熱量(kcal)", "平均心律", "最大心律", "距離(km)", "平均速度(km/h)", "詳細", "備註"],
           data.exercises.map((e) => [
-            formatDateTime(e.loggedAt), e.exerciseType, e.durationMin, e.caloriesBurned ?? 0, e.note ?? "",
+            formatDateTime(e.loggedAt), e.exerciseType, e.durationMin, e.caloriesBurned ?? 0,
+            e.avgHeartRate ?? "", e.maxHeartRate ?? "", e.distanceKm ?? "", e.avgSpeedKmh ?? "",
+            exerciseDetailText(e.details), e.note ?? "",
           ])
         ),
       ].join("\n");

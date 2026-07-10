@@ -186,7 +186,7 @@ export async function getExerciseLogs(userId: number, dayStartMs: number, dayEnd
 export async function updateExerciseLog(
   id: number,
   userId: number,
-  fields: { durationMin?: number; caloriesBurned?: number }
+  fields: Partial<Omit<InsertExerciseLog, "id" | "userId" | "createdAt">>
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");

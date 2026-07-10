@@ -13,6 +13,7 @@ import {
   insertExerciseLog,
   insertFoodLog,
   insertWeightLog,
+  updateExerciseLog,
   updateWeightLog,
   upsertUserGoals,
 } from "./db";
@@ -200,6 +201,11 @@ export const appRouter = router({
           exerciseType: z.string().min(1),
           durationMin: z.number().int().min(0),
           caloriesBurned: z.number().min(0).default(0),
+          avgHeartRate: z.number().int().min(0).max(300).nullable().optional(),
+          maxHeartRate: z.number().int().min(0).max(300).nullable().optional(),
+          distanceKm: z.number().min(0).nullable().optional(),
+          avgSpeedKmh: z.number().min(0).nullable().optional(),
+          details: z.string().nullable().optional(),
           note: z.string().optional(),
           loggedAt: z.number().optional(),
         })
@@ -210,8 +216,44 @@ export const appRouter = router({
           exerciseType: input.exerciseType,
           durationMin: input.durationMin,
           caloriesBurned: input.caloriesBurned,
+          avgHeartRate: input.avgHeartRate ?? null,
+          maxHeartRate: input.maxHeartRate ?? null,
+          distanceKm: input.distanceKm ?? null,
+          avgSpeedKmh: input.avgSpeedKmh ?? null,
+          details: input.details ?? null,
           note: input.note,
           loggedAt: input.loggedAt ?? Date.now(),
+        });
+        return { success: true };
+      }),
+
+    update: protectedProcedure
+      .input(
+        z.object({
+          id: z.number().int(),
+          exerciseType: z.string().min(1),
+          durationMin: z.number().int().min(0),
+          caloriesBurned: z.number().min(0).default(0),
+          avgHeartRate: z.number().int().min(0).max(300).nullable().optional(),
+          maxHeartRate: z.number().int().min(0).max(300).nullable().optional(),
+          distanceKm: z.number().min(0).nullable().optional(),
+          avgSpeedKmh: z.number().min(0).nullable().optional(),
+          details: z.string().nullable().optional(),
+          note: z.string().nullable().optional(),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { id, ...fields } = input;
+        await updateExerciseLog(id, ctx.user.id, {
+          exerciseType: fields.exerciseType,
+          durationMin: fields.durationMin,
+          caloriesBurned: fields.caloriesBurned,
+          avgHeartRate: fields.avgHeartRate ?? null,
+          maxHeartRate: fields.maxHeartRate ?? null,
+          distanceKm: fields.distanceKm ?? null,
+          avgSpeedKmh: fields.avgSpeedKmh ?? null,
+          details: fields.details ?? null,
+          note: fields.note ?? null,
         });
         return { success: true };
       }),
