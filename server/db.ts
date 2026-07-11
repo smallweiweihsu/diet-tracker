@@ -28,6 +28,27 @@ export async function getDb() {
   return _db;
 }
 
+// Apply any pending Drizzle migrations at startup. Uses drizzle-orm's own
+// migrator (runtime deps only), so no drizzle-kit CLI is needed in production.
+// The SQL lives in ./drizzle, which ships with the repo checkout on the host.
+export async function runMigrations(): Promise<void> {
+  if (!process.env.DATABASE_URL) {
+    console.warn("[Migrate] DATABASE_URL not set — skipping migrations");
+    return;
+  }
+  const [{ migrate }, mysql] = await Promise.all([
+    import("drizzle-orm/mysql2/migrator"),
+    import("mysql2/promise"),
+  ]);
+  const connection = await mysql.default.createConnection(process.env.DATABASE_URL);
+  try {
+    await migrate(drizzle(connection), { migrationsFolder: "drizzle" });
+    console.log("[Migrate] Migrations up to date");
+  } finally {
+    await connection.end();
+  }
+}
+
 // ── Users ────────────────────────────────────────────────────────────────────
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required for upsert");

@@ -5,6 +5,7 @@ import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { registerHealthSync } from "../healthSync";
+import { runMigrations } from "../db";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 
@@ -28,6 +29,14 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  // Apply pending DB migrations before serving. Non-fatal: a transient DB
+  // hiccup shouldn't stop the app from booting.
+  try {
+    await runMigrations();
+  } catch (error) {
+    console.error("[Migrate] Failed to apply migrations:", error);
+  }
+
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
