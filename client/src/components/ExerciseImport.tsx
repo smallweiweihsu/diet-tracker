@@ -61,18 +61,15 @@ export default function ExerciseImport({
   const trpcClient = trpc.useUtils().client;
   const addExercise = trpc.exercise.add.useMutation();
 
-  // Two screenshots describe the SAME workout — so they should merge into one
-  // row rather than become two — when they're the same day, a compatible type
-  // (same, or one still unknown), and one of them has no duration of its own
-  // (e.g. a max-HR or stroke-detail screen) or their durations basically match.
+  // Screenshots of one workout should merge into a single row. A user typically
+  // uploads several screens of the SAME session (summary + splits + max HR), so
+  // same day + compatible type (same, or one still unknown) is treated as one
+  // workout. mergeDrafts keeps the richer value of each field.
   const sameWorkout = (a: Omit<Draft, "id">, b: Draft) =>
     a.dateStr === b.dateStr &&
     (a.exerciseType === b.exerciseType ||
       a.exerciseType === "其他" ||
-      b.exerciseType === "其他") &&
-    (num(a.durationMin) === 0 ||
-      num(b.durationMin) === 0 ||
-      Math.abs(num(a.durationMin) - num(b.durationMin)) <= 1);
+      b.exerciseType === "其他");
 
   // Combine two drafts of one workout, keeping the richer value of each field
   // (e.g. duration from the summary screenshot + max HR / strokes from another).

@@ -654,6 +654,45 @@ export const appRouter = router({
         };
       }),
 
+    // Per-session time series for one exercise type — powers the trend charts
+    // (distance / max HR / pace / stroke meters over time).
+    exerciseSeries: protectedProcedure
+      .input(
+        z.object({
+          exerciseType: z.string().min(1),
+          startMs: z.number(),
+          endMs: z.number(),
+        })
+      )
+      .query(async ({ ctx, input }) => {
+        const all = await getExerciseLogs(ctx.user.id, input.startMs, input.endMs);
+        return all
+          .filter((e) => e.exerciseType === input.exerciseType)
+          .sort((a, b) => a.loggedAt - b.loggedAt)
+          .map((e) => {
+            const details = parseDetails(e.details);
+            const strokeMeters = details.strokes
+              ? Object.values(details.strokes).reduce(
+                  (s, m) => s + (typeof m === "number" ? m : 0),
+                  0
+                )
+              : 0;
+            const paceSecs =
+              typeof details.pace === "string" ? paceToSeconds(details.pace) : null;
+            return {
+              dateMs: e.loggedAt,
+              durationMin: e.durationMin ?? 0,
+              caloriesBurned: Math.round(e.caloriesBurned ?? 0),
+              distanceKm: e.distanceKm ?? null,
+              avgHeartRate: e.avgHeartRate ?? null,
+              maxHeartRate: e.maxHeartRate ?? null,
+              avgSpeedKmh: e.avgSpeedKmh ?? null,
+              paceSecs,
+              strokeMeters,
+            };
+          });
+      }),
+
     // Full data dump for CSV export.
     exportAll: protectedProcedure.query(async ({ ctx }) => {
       const toMs = Date.now();

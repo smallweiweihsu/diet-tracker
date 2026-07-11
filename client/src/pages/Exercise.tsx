@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import ExerciseImport from "@/components/ExerciseImport";
+import ExerciseStats from "@/components/ExerciseStats";
 import {
   cn, formatNum, dayStartMs, addDays, dateInputValue, dayStartFromInput,
   EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
@@ -383,6 +384,7 @@ function exerciseSummary(ex: ExerciseRecord): string {
 
 export default function Exercise() {
   const [dateMs, setDateMs] = useState(() => dayStartMs(Date.now()));
+  const [view, setView] = useState<"records" | "stats">("records");
   const [showAdd, setShowAdd] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<ExerciseRecord | null>(null);
@@ -418,30 +420,58 @@ export default function Exercise() {
 
   return (
     <div className="min-h-dvh bg-background">
-      {/* Header + date nav */}
+      {/* Header + record/stats toggle */}
       <div className="px-4 pt-12 pb-4">
         <h1 className="text-xl font-bold text-foreground mb-4">運動記錄</h1>
-        <div className="flex items-center justify-between bg-card rounded-2xl border border-border/50 px-2 py-1">
-          <button
-            onClick={() => setDateMs((d) => addDays(d, -1))}
-            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-muted active:scale-95 transition-all"
-          >
-            <ChevronLeft size={20} className="text-foreground" />
-          </button>
-          <div className="text-center">
-            <p className="text-sm font-semibold text-foreground">{dateLabel}</p>
-            {isToday && <p className="text-[10px] text-primary font-medium">今天</p>}
-          </div>
-          <button
-            onClick={() => setDateMs((d) => addDays(d, 1))}
-            disabled={isToday}
-            className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
-          >
-            <ChevronRight size={20} className="text-foreground" />
-          </button>
+        <div className="flex gap-2 mb-4">
+          {([["records", "記錄"], ["stats", "統計"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={cn(
+                "flex-1 h-9 rounded-full text-sm font-semibold transition-all duration-200",
+                view === key
+                  ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+        {view === "records" && (
+          <div className="flex items-center justify-between bg-card rounded-2xl border border-border/50 px-2 py-1">
+            <button
+              onClick={() => setDateMs((d) => addDays(d, -1))}
+              className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-muted active:scale-95 transition-all"
+            >
+              <ChevronLeft size={20} className="text-foreground" />
+            </button>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-foreground">{dateLabel}</p>
+              {isToday && <p className="text-[10px] text-primary font-medium">今天</p>}
+            </div>
+            <button
+              onClick={() => setDateMs((d) => addDays(d, 1))}
+              disabled={isToday}
+              className="w-9 h-9 rounded-xl flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30"
+            >
+              <ChevronRight size={20} className="text-foreground" />
+            </button>
+          </div>
+        )}
       </div>
 
+      {view === "stats" ? (
+        <div className="px-4 pb-4">
+          <ExerciseStats
+            onPickDay={(ms) => {
+              setDateMs(ms);
+              setView("records");
+            }}
+          />
+        </div>
+      ) : (
       <div className="px-4 flex flex-col gap-3">
         {/* Stats */}
         <div className="dt-card">
@@ -534,6 +564,7 @@ export default function Exercise() {
           )}
         </div>
       </div>
+      )}
 
       {showAdd && (
         <ExerciseSheet
