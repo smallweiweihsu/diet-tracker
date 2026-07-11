@@ -464,12 +464,7 @@ export default function Exercise() {
 
       {view === "stats" ? (
         <div className="px-4 pb-4">
-          <ExerciseStats
-            onPickDay={(ms) => {
-              setDateMs(ms);
-              setView("records");
-            }}
-          />
+          <ExerciseStats />
         </div>
       ) : (
       <div className="px-4 flex flex-col gap-3">
