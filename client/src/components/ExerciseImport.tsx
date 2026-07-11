@@ -4,7 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import {
   cn, dayStartMs, dateInputValue, dayStartFromInput,
-  EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
+  EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN, SWIM_STROKES,
 } from "@/lib/utils";
 
 // One recognized workout awaiting confirmation. Photos may span multiple days;
@@ -21,6 +21,7 @@ interface Draft {
   avgSpeedKmh: number | null;
   pace: string;
   muscleGroups: string[];
+  strokes: Record<string, number>;
 }
 
 function num(v: string): number {
@@ -36,6 +37,8 @@ function draftSummary(d: Draft): string {
   if (d.avgSpeedKmh) parts.push(`${d.avgSpeedKmh} km/h`);
   if (d.pace) parts.push(`${d.pace}/100m`);
   if (d.muscleGroups.length) parts.push(d.muscleGroups.join("/"));
+  const strokeEntries = Object.entries(d.strokes);
+  if (strokeEntries.length) parts.push(strokeEntries.map(([k, v]) => `${k}${v}m`).join(" "));
   return parts.join(" · ");
 }
 
@@ -58,23 +61,21 @@ export default function ExerciseImport({
   const trpcClient = trpc.useUtils().client;
   const addExercise = trpc.exercise.add.useMutation();
 
-  // A draft that carries only supplementary readings (e.g. a screenshot that
-  // just shows the max heart rate) with no duration/distance of its own.
-  const isPartial = (d: Omit<Draft, "id">) => !d.durationMin && d.distanceKm == null;
-
   // Two screenshots describe the SAME workout — so they should merge into one
-  // row rather than become two — when they're the same day and either one is
-  // just extra readings (max HR), or they're the same type with (near-)equal
-  // duration (a duplicate screenshot of the same session).
+  // row rather than become two — when they're the same day, a compatible type
+  // (same, or one still unknown), and one of them has no duration of its own
+  // (e.g. a max-HR or stroke-detail screen) or their durations basically match.
   const sameWorkout = (a: Omit<Draft, "id">, b: Draft) =>
     a.dateStr === b.dateStr &&
-    (isPartial(a) ||
-      isPartial(b) ||
-      (a.exerciseType === b.exerciseType &&
-        Math.abs(num(a.durationMin) - num(b.durationMin)) <= 1));
+    (a.exerciseType === b.exerciseType ||
+      a.exerciseType === "其他" ||
+      b.exerciseType === "其他") &&
+    (num(a.durationMin) === 0 ||
+      num(b.durationMin) === 0 ||
+      Math.abs(num(a.durationMin) - num(b.durationMin)) <= 1);
 
   // Combine two drafts of one workout, keeping the richer value of each field
-  // (e.g. duration from the main screenshot + max HR from the other).
+  // (e.g. duration from the summary screenshot + max HR / strokes from another).
   const mergeDrafts = (base: Draft, extra: Omit<Draft, "id">): Draft => {
     const keepBigger = (x: string, y: string) => (num(x) >= num(y) ? x : y);
     const specificType =
@@ -91,10 +92,11 @@ export default function ExerciseImport({
       caloriesBurned: keepBigger(base.caloriesBurned, extra.caloriesBurned),
       avgHeartRate: base.avgHeartRate ?? extra.avgHeartRate,
       maxHeartRate: Math.max(base.maxHeartRate ?? 0, extra.maxHeartRate ?? 0) || null,
-      distanceKm: base.distanceKm ?? extra.distanceKm,
+      distanceKm: (base.distanceKm ?? 0) >= (extra.distanceKm ?? 0) ? base.distanceKm : extra.distanceKm,
       avgSpeedKmh: base.avgSpeedKmh ?? extra.avgSpeedKmh,
       pace: base.pace || extra.pace,
       muscleGroups: Array.from(new Set([...base.muscleGroups, ...extra.muscleGroups])),
+      strokes: Object.keys(base.strokes).length ? base.strokes : extra.strokes,
     };
   };
 
@@ -151,6 +153,11 @@ export default function ExerciseImport({
           avgSpeedKmh: r.avgSpeedKmh > 0 ? r.avgSpeedKmh : null,
           pace: r.pace || "",
           muscleGroups: r.muscleGroups ?? [],
+          strokes: Object.fromEntries(
+            (r.strokes ?? [])
+              .filter((s) => SWIM_STROKES.includes(s.name as (typeof SWIM_STROKES)[number]) && s.meters > 0)
+              .map((s) => [s.name, Math.round(s.meters)])
+          ),
         };
         // Merge screenshots of the same workout/day (e.g. a max-HR-only shot)
         // into one row instead of creating duplicates.
@@ -194,8 +201,9 @@ export default function ExerciseImport({
       const timeOfDay = Date.now() - dayStartMs(Date.now());
       let i = 0;
       for (const d of valid) {
-        const details: { pace?: string; muscleGroups?: string[] } = {};
+        const details: { pace?: string; muscleGroups?: string[]; strokes?: Record<string, number> } = {};
         if (d.exerciseType === "游泳" && d.pace) details.pace = d.pace;
+        if (d.exerciseType === "游泳" && Object.keys(d.strokes).length) details.strokes = d.strokes;
         if (d.exerciseType === "健身" && d.muscleGroups.length) details.muscleGroups = d.muscleGroups;
         await addExercise.mutateAsync({
           exerciseType: d.exerciseType,

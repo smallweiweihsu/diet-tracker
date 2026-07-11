@@ -23,6 +23,7 @@ type ExerciseRecord = {
   avgSpeedKmh: number | null;
   details: string | null;
   note: string | null;
+  loggedAt: number;
 };
 
 function num(v: string): number {
@@ -68,9 +69,10 @@ function ExerciseSheet({
   const [muscles, setMuscles] = useState<string[]>(initialDetails.muscleGroups ?? []);
   const [pace, setPace] = useState(initialDetails.pace ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
-  // Date the exercise is logged to. Defaults to the page's selected day (today).
+  // Date the exercise is logged to. Edit mode keeps the record's own day;
+  // add mode defaults to the page's selected day.
   const [dateStr, setDateStr] = useState(() =>
-    dateInputValue(existing ? dayStartMs(Date.now()) : dateMs)
+    dateInputValue(existing ? dayStartMs(existing.loggedAt) : dateMs)
   );
   const galleryRef = useRef<HTMLInputElement>(null);
   const [analyzing, setAnalyzing] = useState(false);

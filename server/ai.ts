@@ -196,6 +196,7 @@ export interface WorkoutAnalysisResult {
   avgSpeedKmh: number;       // 0 if not applicable
   pace: string;              // "" if not applicable, e.g. "2:05" (per 100m / per km)
   muscleGroups: string[];    // gym only, subset of 胸/背/腿/肩/手臂/核心
+  strokes: { name: string; meters: number }[]; // swimming only, per-stroke distance
   dateText: string;          // "" if not shown, else YYYY-MM-DD read from screenshot
 }
 
@@ -219,6 +220,20 @@ const WORKOUT_ANALYSIS_SCHEMA = {
       items: { type: "string" },
       description: "健身時的訓練部位，只從 胸/背/腿/肩/手臂/核心 中選；其他運動填空陣列",
     },
+    strokes: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "泳姿：自由式、蛙式、仰式、蝶式 擇一" },
+          meters: { type: "number", description: "該泳姿的總距離（公尺）" },
+        },
+        required: ["name", "meters"],
+        additionalProperties: false,
+      },
+      description:
+        "游泳時各泳姿的總距離（公尺），例如「自由式（925公尺）蛙式（200公尺）」→ [{name:自由式,meters:925},{name:蛙式,meters:200}]；非游泳填空陣列",
+    },
     dateText: {
       type: "string",
       description:
@@ -227,7 +242,7 @@ const WORKOUT_ANALYSIS_SCHEMA = {
   },
   required: [
     "exerciseType", "durationMin", "caloriesBurned", "avgHeartRate",
-    "maxHeartRate", "distanceKm", "avgSpeedKmh", "pace", "muscleGroups", "dateText",
+    "maxHeartRate", "distanceKm", "avgSpeedKmh", "pace", "muscleGroups", "strokes", "dateText",
   ],
   additionalProperties: false,
 } as const;
@@ -270,7 +285,7 @@ export async function analyzeWorkoutImage(
           },
           {
             type: "text",
-            text: "請讀出這張運動截圖的類型、時間、卡路里、平均/最大心律、距離、平均速度、配速；若是重量訓練請判斷訓練部位。",
+            text: "請讀出這張運動截圖的類型、時間、卡路里、平均/最大心律、距離、平均速度、配速；若是游泳請讀出各泳姿的總距離；若是重量訓練請判斷訓練部位。",
           },
         ],
       },
