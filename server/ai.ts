@@ -221,7 +221,8 @@ const WORKOUT_ANALYSIS_SCHEMA = {
     },
     dateText: {
       type: "string",
-      description: "截圖上顯示的運動日期，轉成 YYYY-MM-DD（例如 2026-07-10）；若截圖沒有日期則填空字串",
+      description:
+        "截圖上顯示的運動日期，轉成 YYYY-MM-DD。截圖通常只有『月、日』與星期而沒有年份，請依提供的今天日期推斷正確年份：結果必須是今天或過去、不可未來；只有月日時取最近一次的那個過去日期。截圖完全沒有日期才填空字串。",
     },
   },
   required: [
@@ -233,7 +234,8 @@ const WORKOUT_ANALYSIS_SCHEMA = {
 
 export async function analyzeWorkoutImage(
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  todayStr?: string
 ): Promise<WorkoutAnalysisResult> {
   if (!ENV.anthropicApiKey) {
     throw new TRPCError({
@@ -244,11 +246,16 @@ export async function analyzeWorkoutImage(
 
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
+  const dateHint = todayStr
+    ? `\n今天的日期是 ${todayStr}。判斷 dateText 的年份時務必依此推斷：日期一定是今天或過去、不會是未來；截圖只有月日時，選最近一次的那個過去日期。`
+    : "";
+
   const response = await client.messages.create({
     model: ENV.anthropicModel,
     max_tokens: 2048,
     system:
-      "你是一位運動數據分析助手。使用者會提供一張運動 App（例如 Apple 健身、Apple Watch、Strava、Garmin 等）的運動摘要截圖。請讀出其中的數據並以 JSON 回傳。運動類型必須對應到指定的選項；找不到對應就填「其他」。看不到的數值一律填 0（配速填空字串、部位填空陣列），不要亂猜。",
+      "你是一位運動數據分析助手。使用者會提供一張運動 App（例如 Apple 健身、Apple Watch、Strava、Garmin 等）的運動摘要截圖。請讀出其中的數據並以 JSON 回傳。運動類型必須對應到指定的選項（例如「室外自行車」「室內單車」對應「騎自行車」，「戶外跑步」對應「慢跑」）；找不到對應就填「其他」。看不到的數值一律填 0（配速填空字串、部位填空陣列），不要亂猜。" +
+      dateHint,
     messages: [
       {
         role: "user",

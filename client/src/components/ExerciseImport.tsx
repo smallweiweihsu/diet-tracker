@@ -58,16 +58,56 @@ export default function ExerciseImport({
   const trpcClient = trpc.useUtils().client;
   const addExercise = trpc.exercise.add.useMutation();
 
-  // Two drafts are "the same workout" if their core numbers match — used to
-  // drop duplicate screenshots of one workout so 11 images of 3 workouts
-  // don't become 11 rows.
+  // A draft that carries only supplementary readings (e.g. a screenshot that
+  // just shows the max heart rate) with no duration/distance of its own.
+  const isPartial = (d: Omit<Draft, "id">) => !d.durationMin && d.distanceKm == null;
+
+  // Two screenshots describe the SAME workout — so they should merge into one
+  // row rather than become two — when they're the same day and either one is
+  // just extra readings (max HR), or they're the same type with (near-)equal
+  // duration (a duplicate screenshot of the same session).
   const sameWorkout = (a: Omit<Draft, "id">, b: Draft) =>
-    a.exerciseType === b.exerciseType &&
     a.dateStr === b.dateStr &&
-    a.durationMin === b.durationMin &&
-    a.caloriesBurned === b.caloriesBurned &&
-    (a.distanceKm ?? 0) === (b.distanceKm ?? 0) &&
-    (a.avgHeartRate ?? 0) === (b.avgHeartRate ?? 0);
+    (isPartial(a) ||
+      isPartial(b) ||
+      (a.exerciseType === b.exerciseType &&
+        Math.abs(num(a.durationMin) - num(b.durationMin)) <= 1));
+
+  // Combine two drafts of one workout, keeping the richer value of each field
+  // (e.g. duration from the main screenshot + max HR from the other).
+  const mergeDrafts = (base: Draft, extra: Omit<Draft, "id">): Draft => {
+    const keepBigger = (x: string, y: string) => (num(x) >= num(y) ? x : y);
+    const specificType =
+      base.exerciseType !== "其他"
+        ? base.exerciseType
+        : extra.exerciseType !== "其他"
+          ? extra.exerciseType
+          : base.exerciseType;
+    return {
+      id: base.id,
+      exerciseType: specificType,
+      dateStr: base.dateStr,
+      durationMin: keepBigger(base.durationMin, extra.durationMin),
+      caloriesBurned: keepBigger(base.caloriesBurned, extra.caloriesBurned),
+      avgHeartRate: base.avgHeartRate ?? extra.avgHeartRate,
+      maxHeartRate: Math.max(base.maxHeartRate ?? 0, extra.maxHeartRate ?? 0) || null,
+      distanceKm: base.distanceKm ?? extra.distanceKm,
+      avgSpeedKmh: base.avgSpeedKmh ?? extra.avgSpeedKmh,
+      pace: base.pace || extra.pace,
+      muscleGroups: Array.from(new Set([...base.muscleGroups, ...extra.muscleGroups])),
+    };
+  };
+
+  // AI reads only 月/日 off most screenshots and can guess the wrong year; a
+  // future date means the year is wrong, so roll it back to the latest past.
+  const normalizePastDate = (dateStr: string, todayStr: string): string => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return todayStr;
+    if (dateStr <= todayStr) return dateStr;
+    const md = dateStr.slice(5); // MM-DD
+    const ty = Number(todayStr.slice(0, 4));
+    const thisYear = `${ty}-${md}`;
+    return thisYear <= todayStr ? thisYear : `${ty - 1}-${md}`;
+  };
 
   const readAsBase64 = (file: File) =>
     new Promise<{ base64: string; mime: string }>((resolve, reject) => {
@@ -86,17 +126,23 @@ export default function ExerciseImport({
     setProgress({ done: 0, total: list.length });
     const today = dateInputValue(dayStartMs(Date.now()));
     let failed = 0;
-    let skipped = 0;
+    let merged = 0;
 
     for (const file of list) {
       try {
         const { base64, mime } = await readAsBase64(file);
-        const r = await trpcClient.exercise.analyzeImage.mutate({ imageBase64: base64, mimeType: mime });
+        const r = await trpcClient.exercise.analyzeImage.mutate({
+          imageBase64: base64,
+          mimeType: mime,
+          todayStr: today,
+        });
         const type = EXERCISE_TYPES.includes(r.exerciseType) ? r.exerciseType : "其他";
         const est = Math.round((r.durationMin || 0) * (EXERCISE_CALORIE_PER_MIN[type] ?? 5));
         const draft: Omit<Draft, "id"> = {
           exerciseType: type,
-          dateStr: /^\d{4}-\d{2}-\d{2}$/.test(r.dateText) ? r.dateText : today,
+          dateStr: /^\d{4}-\d{2}-\d{2}$/.test(r.dateText)
+            ? normalizePastDate(r.dateText, today)
+            : today,
           durationMin: r.durationMin > 0 ? String(Math.round(r.durationMin)) : "",
           caloriesBurned: r.caloriesBurned > 0 ? String(Math.round(r.caloriesBurned)) : String(est),
           avgHeartRate: r.avgHeartRate > 0 ? Math.round(r.avgHeartRate) : null,
@@ -106,13 +152,20 @@ export default function ExerciseImport({
           pace: r.pace || "",
           muscleGroups: r.muscleGroups ?? [],
         };
-        // Skip duplicate screenshots of the same workout.
-        let isDup = false;
+        // Merge screenshots of the same workout/day (e.g. a max-HR-only shot)
+        // into one row instead of creating duplicates.
+        let didMerge = false;
         setDrafts((prev) => {
-          if (prev.some((d) => sameWorkout(draft, d))) { isDup = true; return prev; }
+          const idx = prev.findIndex((d) => sameWorkout(draft, d));
+          if (idx >= 0) {
+            didMerge = true;
+            const copy = [...prev];
+            copy[idx] = mergeDrafts(copy[idx], draft);
+            return copy;
+          }
           return [...prev, { id: nextId.current++, ...draft }];
         });
-        if (isDup) skipped++;
+        if (didMerge) merged++;
       } catch {
         failed++;
       }
@@ -120,7 +173,7 @@ export default function ExerciseImport({
     }
 
     setAnalyzing(false);
-    if (skipped > 0) toast.info(`已略過 ${skipped} 張重複的截圖`);
+    if (merged > 0) toast.info(`已合併 ${merged} 張同一天的截圖`);
     if (failed > 0) toast.error(`${failed} 張辨識失敗，已略過`);
   };
 

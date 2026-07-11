@@ -379,10 +379,11 @@ export const appRouter = router({
         z.object({
           imageBase64: z.string(),
           mimeType: z.string().default("image/jpeg"),
+          todayStr: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         })
       )
       .mutation(async ({ input }) => {
-        return analyzeWorkoutImage(input.imageBase64, input.mimeType);
+        return analyzeWorkoutImage(input.imageBase64, input.mimeType, input.todayStr);
       }),
 
     byDate: protectedProcedure
