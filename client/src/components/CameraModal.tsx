@@ -4,7 +4,22 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { cn, MEAL_LABELS } from "@/lib/utils";
 
+const NUTRITION_FIELDS = [
+  { field: "calories" as const, label: "熱量", unit: "kcal" },
+  { field: "proteinG" as const, label: "蛋白質", unit: "g" },
+  { field: "carbsG" as const, label: "碳水", unit: "g" },
+  { field: "fatG" as const, label: "脂肪", unit: "g" },
+  { field: "sugarG" as const, label: "糖", unit: "g" },
+  { field: "saturatedFatG" as const, label: "飽和脂肪", unit: "g" },
+  { field: "fiberG" as const, label: "膳食纖維", unit: "g" },
+  { field: "sodiumMg" as const, label: "鈉", unit: "mg" },
+];
+
+type NutritionField = (typeof NUTRITION_FIELDS)[number]["field"];
+
 // Editable draft — keep values as strings so typing "12." works naturally.
+// `perUnit` holds the nutrition per 1 unit so changing the 份量 rescales the
+// numbers (e.g. AI reads 12 蝦, user sets 份量 to 4 → values scale to 4/12).
 interface FoodDraft {
   name: string;
   quantity: string;
@@ -17,24 +32,15 @@ interface FoodDraft {
   saturatedFatG: string;
   fiberG: string;
   sodiumMg: string;
+  perUnit: Record<NutritionField, number>;
 }
-
-const NUTRITION_FIELDS = [
-  { field: "calories" as const, label: "熱量", unit: "kcal" },
-  { field: "proteinG" as const, label: "蛋白質", unit: "g" },
-  { field: "carbsG" as const, label: "碳水", unit: "g" },
-  { field: "fatG" as const, label: "脂肪", unit: "g" },
-  { field: "sugarG" as const, label: "糖", unit: "g" },
-  { field: "saturatedFatG" as const, label: "飽和脂肪", unit: "g" },
-  { field: "fiberG" as const, label: "膳食纖維", unit: "g" },
-  { field: "sodiumMg" as const, label: "鈉", unit: "mg" },
-];
 
 function emptyDraft(): FoodDraft {
   return {
     name: "", quantity: "1", unit: "份",
     calories: "", proteinG: "", carbsG: "", fatG: "",
     sugarG: "", saturatedFatG: "", fiberG: "", sodiumMg: "",
+    perUnit: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, sugarG: 0, saturatedFatG: 0, fiberG: 0, sodiumMg: 0 },
   };
 }
 
@@ -59,19 +65,27 @@ type AnalyzedFood = {
 };
 
 function toDrafts(items: AnalyzedFood[]): FoodDraft[] {
-  return items.map((f) => ({
-    name: f.name,
-    quantity: String(f.quantity),
-    unit: f.unit,
-    calories: String(Math.round(f.calories)),
-    proteinG: String(Math.round(f.proteinG)),
-    carbsG: String(Math.round(f.carbsG)),
-    fatG: String(Math.round(f.fatG)),
-    sugarG: String(Math.round(f.sugarG ?? 0)),
-    saturatedFatG: String(Math.round(f.saturatedFatG ?? 0)),
-    fiberG: String(Math.round(f.fiberG ?? 0)),
-    sodiumMg: String(Math.round(f.sodiumMg ?? 0)),
-  }));
+  return items.map((f) => {
+    const q = f.quantity > 0 ? f.quantity : 1;
+    const raw: Record<NutritionField, number> = {
+      calories: f.calories, proteinG: f.proteinG, carbsG: f.carbsG, fatG: f.fatG,
+      sugarG: f.sugarG ?? 0, saturatedFatG: f.saturatedFatG ?? 0,
+      fiberG: f.fiberG ?? 0, sodiumMg: f.sodiumMg ?? 0,
+    };
+    const perUnit = {} as Record<NutritionField, number>;
+    const strings = {} as Record<NutritionField, string>;
+    for (const { field } of NUTRITION_FIELDS) {
+      perUnit[field] = raw[field] / q;
+      strings[field] = String(Math.round(raw[field]));
+    }
+    return {
+      name: f.name,
+      quantity: String(f.quantity),
+      unit: f.unit,
+      ...strings,
+      perUnit,
+    } as FoodDraft;
+  });
 }
 
 export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
@@ -108,7 +122,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
       setPreview(dataUrl);
       const base64 = dataUrl.split(",")[1] ?? "";
       setStep("analyzing");
-      analyze.mutate({ imageBase64: base64, mimeType: mime });
+      analyze.mutate({ imageBase64: base64, mimeType: mime, note: description.trim() || undefined });
     };
     reader.readAsDataURL(file);
   };
@@ -161,8 +175,36 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
     }
   };
 
-  const updateFood = (idx: number, field: keyof FoodDraft, val: string) => {
+  const updateFood = (idx: number, field: "name" | "unit", val: string) => {
     setFoods((prev) => prev.map((f, i) => (i === idx ? { ...f, [field]: val } : f)));
+  };
+
+  // Changing 份量 rescales every nutrition value from its per-unit amount.
+  const updateQuantity = (idx: number, val: string) => {
+    setFoods((prev) =>
+      prev.map((f, i) => {
+        if (i !== idx) return f;
+        const q = num(val);
+        if (q <= 0) return { ...f, quantity: val }; // empty / mid-typing: don't zero out
+        const next: FoodDraft = { ...f, quantity: val };
+        for (const { field } of NUTRITION_FIELDS) {
+          next[field] = String(Math.round((f.perUnit[field] ?? 0) * q));
+        }
+        return next;
+      })
+    );
+  };
+
+  // Editing a nutrition value updates its per-unit basis so later 份量 changes
+  // scale correctly.
+  const updateNutrition = (idx: number, field: NutritionField, val: string) => {
+    setFoods((prev) =>
+      prev.map((f, i) => {
+        if (i !== idx) return f;
+        const q = num(f.quantity) || 1;
+        return { ...f, [field]: val, perUnit: { ...f.perUnit, [field]: num(val) / q } };
+      })
+    );
   };
 
   const removeFood = (idx: number) => {
@@ -202,12 +244,12 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
               <div className="w-full rounded-2xl border border-primary/30 bg-primary/5 p-3">
                 <label className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
                   <Sparkles size={14} className="text-primary" />
-                  用文字描述給 AI
+                  描述食物 / 給 AI 備註（份量等）
                 </label>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="例如：一個排骨便當、一杯半糖珍奶"
+                  placeholder="例如：只吃一半、大約 4 隻蝦、一個排骨便當"
                   rows={2}
                   className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground
                              placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
@@ -257,6 +299,11 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
                   相簿
                 </button>
               </div>
+              {description.trim() && (
+                <p className="text-[11px] text-primary/80 text-center -mt-1">
+                  拍照 / 相簿會一併參考上方備註調整份量
+                </p>
+              )}
               <button
                 onClick={startManual}
                 className="w-full py-3 rounded-2xl border border-border text-foreground font-medium text-sm
@@ -314,7 +361,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
                       <label className="text-[10px] text-muted-foreground mb-1 block">份量</label>
                       <input
                         type="number" inputMode="decimal" value={food.quantity}
-                        onChange={(e) => updateFood(idx, "quantity", e.target.value)}
+                        onChange={(e) => updateQuantity(idx, e.target.value)}
                         className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                       />
                     </div>
@@ -337,7 +384,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
                         <input
                           type="number" inputMode="decimal" min={0}
                           value={food[field]}
-                          onChange={(e) => updateFood(idx, field, e.target.value)}
+                          onChange={(e) => updateNutrition(idx, field, e.target.value)}
                           placeholder="0"
                           className="w-full h-10 rounded-xl border border-border bg-card px-3 text-sm num-display text-foreground
                                      placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"

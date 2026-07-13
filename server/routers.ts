@@ -292,10 +292,11 @@ export const appRouter = router({
         z.object({
           imageBase64: z.string(),
           mimeType: z.string().default("image/jpeg"),
+          note: z.string().max(500).optional(),
         })
       )
       .mutation(async ({ input }) => {
-        const result = await analyzeFoodImage(input.imageBase64, input.mimeType);
+        const result = await analyzeFoodImage(input.imageBase64, input.mimeType, input.note);
         return { ...result, imageUrl: "" };
       }),
 

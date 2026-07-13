@@ -66,7 +66,8 @@ function normalizeMediaType(mimeType: string): SupportedImageType {
 
 export async function analyzeFoodImage(
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  note?: string
 ): Promise<FoodAnalysisResult> {
   if (!ENV.anthropicApiKey) {
     throw new TRPCError({
@@ -77,11 +78,16 @@ export async function analyzeFoodImage(
 
   const client = new Anthropic({ apiKey: ENV.anthropicApiKey });
 
+  const hint = note?.trim()
+    ? `\n使用者補充說明：「${note.trim()}」。照片不一定全部吃完，請依此說明調整實際食用的份量（quantity）與所有營養數值，讓數值對應實際吃下的量。`
+    : "";
+
   const response = await client.messages.create({
     model: ENV.anthropicModel,
     max_tokens: 4096,
     system:
-      "你是一位專業的營養師。請分析食物照片（也可能是包裝上的營養標示），辨識所有食物，並以合理的常見份量估算每項食物的營養成分：熱量、蛋白質、碳水化合物、脂肪、糖、飽和脂肪、膳食纖維、鈉。若照片是營養標示，直接按標示數值填寫。所有名稱使用繁體中文。",
+      "你是一位專業的營養師。請分析食物照片（也可能是包裝上的營養標示），辨識所有食物，並以合理的常見份量估算每項食物的營養成分：熱量、蛋白質、碳水化合物、脂肪、糖、飽和脂肪、膳食纖維、鈉。若照片是營養標示，直接按標示數值填寫。所有名稱使用繁體中文。" +
+      hint,
     messages: [
       {
         role: "user",
@@ -96,7 +102,9 @@ export async function analyzeFoodImage(
           },
           {
             type: "text",
-            text: "請分析這張食物圖片，辨識所有食物，估算份量與營養成分。",
+            text:
+              "請分析這張食物圖片，辨識所有食物，估算份量與營養成分。" +
+              (note?.trim() ? `使用者補充：${note.trim()}` : ""),
           },
         ],
       },
