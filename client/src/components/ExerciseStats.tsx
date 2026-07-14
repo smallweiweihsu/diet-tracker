@@ -51,6 +51,11 @@ function sessionSummary(e: {
   }
   if (d.pace) parts.push(`${d.pace}/100m`);
   if (d.muscleGroups?.length) parts.push(d.muscleGroups.join("/"));
+  if (d.lifts?.length) {
+    const vol = d.lifts.reduce((s, l) => s + l.sets.reduce((a, st) => a + st.weight * st.reps, 0), 0);
+    parts.push(`${d.lifts.length} 動作`);
+    if (vol > 0) parts.push(`${formatNum(vol)} kg`);
+  }
   return parts.join(" · ");
 }
 
@@ -173,6 +178,94 @@ function TrendChart({
             dot={{ fill: color, r: 3 }} activeDot={{ r: 5 }} />
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+// ── Weight-training movement analysis (picker + PR + trends) ────────────────
+function GymLiftAnalysis({ periodStart, periodEnd }: { periodStart: number; periodEnd: number }) {
+  const todayMs = dayStartMs(Date.now());
+  const [lift, setLift] = useState<string | null>(null);
+  const { data: liftList = [] } = trpc.stats.liftList.useQuery({ startMs: periodStart, endMs: periodEnd });
+
+  useEffect(() => {
+    if (liftList.length === 0) { setLift(null); return; }
+    if (!lift || !liftList.some((l) => l.name === lift)) setLift(liftList[0].name);
+  }, [liftList, lift]);
+
+  const { data: series = [] } = trpc.stats.liftSeries.useQuery(
+    { name: lift ?? "", startMs: todayMs - 84 * DAY_MS, endMs: todayMs + DAY_MS - 1 },
+    { enabled: !!lift }
+  );
+
+  const pr = useMemo(() => {
+    if (series.length === 0) return null;
+    let bestWeight = 0, best1RM = 0, best1RMWeight = 0, best1RMReps = 0;
+    for (const p of series) {
+      if (p.topWeight > bestWeight) bestWeight = p.topWeight;
+      if (p.est1RM > best1RM) { best1RM = p.est1RM; best1RMWeight = p.bestWeight; best1RMReps = p.bestReps; }
+    }
+    return { bestWeight, best1RM, best1RMWeight, best1RMReps };
+  }, [series]);
+
+  const charts = useMemo(() => {
+    const out: React.ReactNode[] = [];
+    const collect = (pick: (p: (typeof series)[number]) => number) =>
+      series.map((p) => ({ label: formatDateShort(p.dateMs), value: pick(p) })).filter((p) => p.value > 0);
+    const weight = collect((p) => p.topWeight);
+    const oneRM = collect((p) => p.est1RM);
+    const volume = collect((p) => p.volume);
+    if (weight.length >= 2)
+      out.push(<TrendChart key="w" title="最重 (kg)" points={weight} color="var(--color-primary)" tooltipFormatter={(v) => `${v} kg`} />);
+    if (oneRM.length >= 2)
+      out.push(<TrendChart key="orm" title="估 1RM (kg)" points={oneRM} color="var(--color-accent)" tooltipFormatter={(v) => `${v} kg`} />);
+    if (volume.length >= 2)
+      out.push(<TrendChart key="vol" title="訓練量 (kg)" points={volume} color="var(--color-carbs)" tooltipFormatter={(v) => `${formatNum(v)} kg`} />);
+    return out;
+  }, [series]);
+
+  if (liftList.length === 0) return null;
+
+  return (
+    <div className="pt-1">
+      <p className="text-xs font-semibold text-foreground mb-1.5 px-0.5">動作分析</p>
+      {/* Movement picker */}
+      <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1 no-scrollbar" data-swipe-ignore>
+        {liftList.map((l) => (
+          <button
+            key={l.name}
+            onClick={() => setLift(l.name)}
+            className={cn(
+              "shrink-0 px-3 h-8 rounded-full text-xs font-semibold transition-all duration-150",
+              lift === l.name ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30" : "bg-muted text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {l.name} <span className="num-display opacity-70">{l.count}</span>
+          </button>
+        ))}
+      </div>
+
+      {pr && (
+        <div className="grid grid-cols-2 gap-2 mt-1">
+          <div className="p-2.5 rounded-xl bg-primary/10">
+            <p className="text-[10px] text-muted-foreground">最重紀錄</p>
+            <p className="num-display text-base font-bold text-primary">{pr.bestWeight} kg</p>
+          </div>
+          <div className="p-2.5 rounded-xl bg-accent/10">
+            <p className="text-[10px] text-muted-foreground">估 1RM 紀錄</p>
+            <p className="num-display text-base font-bold text-accent">
+              {pr.best1RM} kg
+              {pr.best1RMWeight > 0 && (
+                <span className="text-[10px] font-normal text-muted-foreground ml-1">
+                  ({pr.best1RMWeight}×{pr.best1RMReps})
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {charts.length > 0 && <div className="flex flex-col gap-3 mt-3">{charts}</div>}
     </div>
   );
 }
@@ -400,6 +493,9 @@ export default function ExerciseStats() {
                     </div>
                   </div>
                 )}
+
+                {/* Weight-training movement analysis */}
+                {type === "健身" && <GymLiftAnalysis periodStart={startMs} periodEnd={endMs} />}
 
                 {/* Trend charts */}
                 {charts.length > 0 && (

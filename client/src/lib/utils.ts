@@ -136,6 +136,7 @@ export interface ExerciseTypeConfig {
   strokes?: boolean;      // swimming: distance per stroke style
   muscleGroups?: boolean; // gym: which body parts trained
   pace?: boolean;         // swimming: average pace (per 100m)
+  lifts?: boolean;        // gym: per-exercise sets × reps × weight
 }
 
 const BASE_FIELDS: ExerciseNumericField[] = ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"];
@@ -144,7 +145,7 @@ export const EXERCISE_TYPE_CONFIG: Record<string, ExerciseTypeConfig> = {
   走路: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
   騎自行車: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
   游泳: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"], strokes: true, pace: true },
-  健身: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"], muscleGroups: true },
+  健身: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"], muscleGroups: true, lifts: true },
   羽球: { numeric: ["durationMin", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
   慢跑: { numeric: ["durationMin", "distanceKm", "avgSpeedKmh", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
   爬山: { numeric: ["durationMin", "distanceKm", "avgHeartRate", "maxHeartRate", "caloriesBurned"] },
@@ -159,11 +160,22 @@ export function exerciseConfig(type: string): ExerciseTypeConfig {
 export const SWIM_STROKES = ["自由式", "蛙式", "仰式", "蝶式"] as const;
 export const MUSCLE_GROUPS = ["胸", "背", "腿", "肩", "手臂", "核心"] as const;
 
+// One weight-training set and movement, stored under details.lifts.
+export interface LiftSet {
+  weight: number; // kg
+  reps: number;
+}
+export interface Lift {
+  name: string;
+  sets: LiftSet[];
+}
+
 // Shape stored in the `details` JSON column.
 export interface ExerciseDetails {
   strokes?: Record<string, number>;   // stroke name → distance (m)
   muscleGroups?: string[];
   pace?: string;                       // avg pace, e.g. "2:05" (per 100m)
+  lifts?: Lift[];                      // gym: per-exercise sets × reps × weight
 }
 
 export function parseExerciseDetails(raw: string | null | undefined): ExerciseDetails {
@@ -174,4 +186,31 @@ export function parseExerciseDetails(raw: string | null | undefined): ExerciseDe
   } catch {
     return {};
   }
+}
+
+// ── Weight-training math ───────────────────────────────────────────────────────
+// Estimated one-rep max (Epley formula). reps=1 → the lifted weight itself.
+export function estimate1RM(weight: number, reps: number): number {
+  if (weight <= 0 || reps <= 0) return 0;
+  return weight * (1 + reps / 30);
+}
+
+// Total training volume of a movement = Σ weight × reps across its sets.
+export function liftVolume(lift: Lift): number {
+  return lift.sets.reduce((s, set) => s + set.weight * set.reps, 0);
+}
+
+// Best estimated 1RM across a movement's sets (used for PRs / trends).
+export function liftBest1RM(lift: Lift): number {
+  return lift.sets.reduce((m, set) => Math.max(m, estimate1RM(set.weight, set.reps)), 0);
+}
+
+// Heaviest single set weight of a movement.
+export function liftTopWeight(lift: Lift): number {
+  return lift.sets.reduce((m, set) => Math.max(m, set.weight), 0);
+}
+
+// Total volume across every movement in a session.
+export function liftsVolume(lifts: Lift[]): number {
+  return lifts.reduce((s, l) => s + liftVolume(l), 0);
 }

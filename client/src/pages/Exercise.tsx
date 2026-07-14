@@ -8,8 +8,8 @@ import {
   EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
   EXERCISE_NUMERIC_LABELS, exerciseConfig,
   SWIM_STROKES, MUSCLE_GROUPS,
-  parseExerciseDetails,
-  type ExerciseNumericField,
+  parseExerciseDetails, estimate1RM,
+  type ExerciseNumericField, type Lift,
 } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -31,6 +31,15 @@ function num(v: string): number {
   const n = parseFloat(v);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
+
+// String-based working copy of a weight-training movement (for inputs).
+type SetDraft = { weight: string; reps: string };
+type LiftDraft = { name: string; sets: SetDraft[] };
+
+const draftSetVolume = (s: SetDraft) => num(s.weight) * num(s.reps);
+const draftLiftVolume = (l: LiftDraft) => l.sets.reduce((sum, s) => sum + draftSetVolume(s), 0);
+const draftLift1RM = (l: LiftDraft) =>
+  l.sets.reduce((m, s) => Math.max(m, estimate1RM(num(s.weight), num(s.reps))), 0);
 
 // Add or edit an exercise. When `existing` is provided the form is in edit mode.
 function ExerciseSheet({
@@ -69,6 +78,12 @@ function ExerciseSheet({
   });
   const [muscles, setMuscles] = useState<string[]>(initialDetails.muscleGroups ?? []);
   const [pace, setPace] = useState(initialDetails.pace ?? "");
+  const [lifts, setLifts] = useState<LiftDraft[]>(() =>
+    (initialDetails.lifts ?? []).map((l) => ({
+      name: l.name,
+      sets: l.sets.map((s) => ({ weight: String(s.weight), reps: String(s.reps) })),
+    }))
+  );
   const [note, setNote] = useState(existing?.note ?? "");
   // Date the exercise is logged to. Edit mode keeps the record's own day;
   // add mode defaults to the page's selected day.
@@ -131,14 +146,53 @@ function ExerciseSheet({
   const toggleMuscle = (m: string) =>
     setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
 
+  // ── Weight-training movement editing ──
+  const addLift = () =>
+    setLifts((prev) => [...prev, { name: "", sets: [{ weight: "", reps: "" }] }]);
+  const removeLift = (li: number) =>
+    setLifts((prev) => prev.filter((_, i) => i !== li));
+  const setLiftName = (li: number, name: string) =>
+    setLifts((prev) => prev.map((l, i) => (i === li ? { ...l, name } : l)));
+  // Adding a set copies the previous one — repeating 60×10 is a single tap.
+  const addSet = (li: number) =>
+    setLifts((prev) =>
+      prev.map((l, i) =>
+        i === li ? { ...l, sets: [...l.sets, { ...(l.sets[l.sets.length - 1] ?? { weight: "", reps: "" }) }] } : l
+      )
+    );
+  const removeSet = (li: number, si: number) =>
+    setLifts((prev) =>
+      prev.map((l, i) => (i === li ? { ...l, sets: l.sets.filter((_, j) => j !== si) } : l))
+    );
+  const setSetField = (li: number, si: number, field: keyof SetDraft, val: string) =>
+    setLifts((prev) =>
+      prev.map((l, i) =>
+        i === li ? { ...l, sets: l.sets.map((s, j) => (j === si ? { ...s, [field]: val } : s)) } : l
+      )
+    );
+
+  const cleanLifts: Lift[] = lifts
+    .map((l) => ({
+      name: l.name.trim(),
+      sets: l.sets
+        .map((s) => ({ weight: num(s.weight), reps: Math.round(num(s.reps)) }))
+        .filter((s) => s.weight > 0 || s.reps > 0),
+    }))
+    .filter((l) => l.name.length > 0 && l.sets.length > 0);
+  const hasLifts = cleanLifts.length > 0;
+  // Gym sessions logged purely as movements don't need a duration.
+  const canSave = durationNum > 0 || (config.lifts && hasLifts);
+
   const handleSubmit = () => {
-    if (!type || durationNum <= 0) {
-      toast.error("請填寫運動類型與時間");
+    if (!type || !canSave) {
+      toast.error(config.lifts ? "請填寫時間或至少一個動作" : "請填寫運動類型與時間");
       return;
     }
     const cal = fields.caloriesBurned ? num(fields.caloriesBurned) : estimatedCal;
 
-    const details: { strokes?: Record<string, number>; muscleGroups?: string[]; pace?: string } = {};
+    const details: {
+      strokes?: Record<string, number>; muscleGroups?: string[]; pace?: string; lifts?: Lift[];
+    } = {};
     if (config.strokes) {
       const s: Record<string, number> = {};
       for (const name of SWIM_STROKES) {
@@ -149,6 +203,7 @@ function ExerciseSheet({
     }
     if (config.muscleGroups && muscles.length) details.muscleGroups = muscles;
     if (config.pace && pace.trim()) details.pace = pace.trim();
+    if (config.lifts && hasLifts) details.lifts = cleanLifts;
     const detailsStr = Object.keys(details).length ? JSON.stringify(details) : null;
 
     const has = (k: ExerciseNumericField) => config.numeric.includes(k);
@@ -333,6 +388,79 @@ function ExerciseSheet({
               </div>
             )}
 
+            {/* Weight-training movements (sets × reps × weight) */}
+            {config.lifts && (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">訓練動作</label>
+                <div className="flex flex-col gap-2.5">
+                  {lifts.map((lift, li) => (
+                    <div key={li} className="rounded-2xl border border-border bg-muted/30 p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <input
+                          type="text"
+                          value={lift.name}
+                          onChange={(e) => setLiftName(li, e.target.value)}
+                          placeholder="動作名稱，例如 臥推"
+                          className="flex-1 h-10 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground placeholder:text-muted-foreground placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        />
+                        <button
+                          onClick={() => removeLift(li)}
+                          className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0"
+                        >
+                          <Trash2 size={14} className="text-destructive" />
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {lift.sets.map((set, si) => (
+                          <div key={si} className="flex items-center gap-2">
+                            <span className="text-[11px] text-muted-foreground w-8 shrink-0">第{si + 1}組</span>
+                            <input
+                              type="number" inputMode="decimal" value={set.weight}
+                              onChange={(e) => setSetField(li, si, "weight", e.target.value)}
+                              placeholder="重量"
+                              className="flex-1 h-9 rounded-lg border border-border bg-card px-2 num-display text-sm text-foreground text-center placeholder:text-muted-foreground placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                            <span className="text-xs text-muted-foreground">kg ×</span>
+                            <input
+                              type="number" inputMode="numeric" value={set.reps}
+                              onChange={(e) => setSetField(li, si, "reps", e.target.value)}
+                              placeholder="次"
+                              className="w-16 h-9 rounded-lg border border-border bg-card px-2 num-display text-sm text-foreground text-center placeholder:text-muted-foreground placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                            <button
+                              onClick={() => removeSet(li, si)}
+                              className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center shrink-0"
+                            >
+                              <X size={13} className="text-muted-foreground" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between mt-2">
+                        <button
+                          onClick={() => addSet(li)}
+                          className="text-xs font-semibold text-primary flex items-center gap-1 active:scale-95 transition-transform"
+                        >
+                          <Plus size={13} /> 加一組
+                        </button>
+                        {draftLiftVolume(lift) > 0 && (
+                          <span className="text-[11px] text-muted-foreground num-display">
+                            訓練量 {formatNum(draftLiftVolume(lift))} kg · 估 1RM {formatNum(draftLift1RM(lift))} kg
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={addLift}
+                    className="w-full h-11 rounded-2xl border border-dashed border-border text-muted-foreground text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all"
+                  >
+                    <Plus size={15} /> 新增動作
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Note */}
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">備註（選填）</label>
@@ -347,10 +475,10 @@ function ExerciseSheet({
 
             <button
               onClick={handleSubmit}
-              disabled={pending || durationNum <= 0}
+              disabled={pending || !canSave}
               className={cn(
                 "w-full h-14 rounded-full font-bold text-base transition-all active:scale-[0.98] flex items-center justify-center gap-2",
-                durationNum > 0
+                canSave
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                   : "bg-muted text-muted-foreground cursor-not-allowed"
               )}
@@ -374,6 +502,11 @@ function exerciseSummary(ex: ExerciseRecord): string {
   if (ex.maxHeartRate) parts.push(`峰 ${ex.maxHeartRate}`);
   const d = parseExerciseDetails(ex.details);
   if (d.muscleGroups?.length) parts.push(d.muscleGroups.join("/"));
+  if (d.lifts?.length) {
+    const vol = d.lifts.reduce((s, l) => s + l.sets.reduce((a, st) => a + st.weight * st.reps, 0), 0);
+    parts.push(`${d.lifts.length} 動作`);
+    if (vol > 0) parts.push(`${formatNum(vol)} kg`);
+  }
   if (d.strokes) {
     const total = Object.values(d.strokes).reduce((s, v) => s + v, 0);
     if (total > 0) parts.push(`${total}m`);

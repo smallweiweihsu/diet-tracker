@@ -49,10 +49,15 @@ function serverTodayStartMs() {
 }
 
 // Shape of the exercise `details` JSON column.
+interface LiftDetail {
+  name: string;
+  sets: { weight: number; reps: number }[];
+}
 interface ExerciseDetails {
   strokes?: Record<string, number>;
   muscleGroups?: string[];
   pace?: string;
+  lifts?: LiftDetail[];
 }
 
 function parseDetails(raw: string | null | undefined): ExerciseDetails {
@@ -692,6 +697,70 @@ export const appRouter = router({
               strokeMeters,
             };
           });
+      }),
+
+    // Distinct weight-training movements logged in a range (for the picker).
+    liftList: protectedProcedure
+      .input(z.object({ startMs: z.number(), endMs: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const logs = await getExerciseLogs(ctx.user.id, input.startMs, input.endMs);
+        const counts = new Map<string, number>();
+        for (const e of logs) {
+          const lifts = parseDetails(e.details).lifts;
+          if (!lifts) continue;
+          const seen = new Set<string>();
+          for (const l of lifts) {
+            if (!l.name || seen.has(l.name)) continue;
+            seen.add(l.name);
+            counts.set(l.name, (counts.get(l.name) ?? 0) + 1);
+          }
+        }
+        return Array.from(counts.entries())
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+      }),
+
+    // Per-session progression for one movement: heaviest set, volume, est 1RM.
+    liftSeries: protectedProcedure
+      .input(z.object({ name: z.string().min(1), startMs: z.number(), endMs: z.number() }))
+      .query(async ({ ctx, input }) => {
+        const logs = await getExerciseLogs(ctx.user.id, input.startMs, input.endMs);
+        const points = [];
+        for (const e of logs) {
+          const lifts = parseDetails(e.details).lifts;
+          if (!lifts) continue;
+          const sets = lifts
+            .filter((l) => l.name === input.name)
+            .flatMap((l) => l.sets ?? []);
+          if (sets.length === 0) continue;
+          let topWeight = 0;
+          let volume = 0;
+          let best1RM = 0;
+          let bestWeight = 0;
+          let bestReps = 0;
+          for (const s of sets) {
+            const w = s.weight ?? 0;
+            const r = s.reps ?? 0;
+            topWeight = Math.max(topWeight, w);
+            volume += w * r;
+            const orm = w > 0 && r > 0 ? w * (1 + r / 30) : 0;
+            if (orm > best1RM) {
+              best1RM = orm;
+              bestWeight = w;
+              bestReps = r;
+            }
+          }
+          points.push({
+            dateMs: e.loggedAt,
+            topWeight,
+            volume,
+            est1RM: Math.round(best1RM * 10) / 10,
+            bestWeight,
+            bestReps,
+            sets: sets.length,
+          });
+        }
+        return points.sort((a, b) => a.dateMs - b.dateMs);
       }),
 
     // Full data dump for CSV export.

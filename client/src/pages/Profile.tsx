@@ -41,6 +41,12 @@ function exerciseDetailText(raw: string | null | undefined): string {
     if (s) parts.push(s);
   }
   if (d.pace) parts.push(`配速${d.pace}/100m`);
+  if (d.lifts?.length) {
+    const s = d.lifts
+      .map((l) => `${l.name} ${l.sets.map((st) => `${st.weight}x${st.reps}`).join("/")}`)
+      .join("；");
+    if (s) parts.push(s);
+  }
   return parts.join("；");
 }
 
