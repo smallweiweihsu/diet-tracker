@@ -3,11 +3,14 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   createProfile,
+  createWorkoutTemplate,
   deleteFoodLog,
   deleteExerciseLog,
   deleteProfileAndData,
   deleteWeightLog,
+  deleteWorkoutTemplate,
   getAllProfiles,
+  getWorkoutTemplates,
   getExerciseLogs,
   getFoodLogs,
   getTodayWeightLog,
@@ -403,6 +406,37 @@ export const appRouter = router({
       .input(z.object({ id: z.number().int() }))
       .mutation(async ({ ctx, input }) => {
         await deleteExerciseLog(input.id, ctx.user.id);
+        return { success: true };
+      }),
+  }),
+
+  // ── Workout templates (weight-training 課表) ──────────────────────────────────
+  templates: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return getWorkoutTemplates(ctx.user.id);
+    }),
+
+    create: protectedProcedure
+      .input(
+        z.object({
+          name: z.string().trim().min(1).max(50),
+          lifts: z.array(
+            z.object({
+              name: z.string().min(1),
+              sets: z.array(z.object({ weight: z.number().min(0), reps: z.number().int().min(0) })),
+            })
+          ).min(1),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        await createWorkoutTemplate(ctx.user.id, input.name, JSON.stringify(input.lifts));
+        return { success: true };
+      }),
+
+    remove: protectedProcedure
+      .input(z.object({ id: z.number().int() }))
+      .mutation(async ({ ctx, input }) => {
+        await deleteWorkoutTemplate(input.id, ctx.user.id);
         return { success: true };
       }),
   }),

@@ -160,6 +160,16 @@ export function exerciseConfig(type: string): ExerciseTypeConfig {
 export const SWIM_STROKES = ["自由式", "蛙式", "仰式", "蝶式"] as const;
 export const MUSCLE_GROUPS = ["胸", "背", "腿", "肩", "手臂", "核心"] as const;
 
+// Built-in common weight-training movements, grouped by body part, for quick-add.
+export const COMMON_LIFTS: { group: string; names: string[] }[] = [
+  { group: "胸", names: ["臥推", "上斜臥推", "啞鈴臥推", "蝴蝶機夾胸", "伏地挺身"] },
+  { group: "背", names: ["引體向上", "滑輪下拉", "槓鈴划船", "啞鈴划船", "硬舉"] },
+  { group: "腿", names: ["深蹲", "腿推", "腿彎舉", "腿伸展", "分腿蹲", "小腿舉"] },
+  { group: "肩", names: ["肩推", "啞鈴肩推", "側平舉", "前平舉", "面拉"] },
+  { group: "手臂", names: ["二頭彎舉", "三頭下壓", "錘式彎舉", "窄距臥推"] },
+  { group: "核心", names: ["棒式", "捲腹", "懸吊抬腿"] },
+];
+
 // One weight-training set and movement, stored under details.lifts.
 export interface LiftSet {
   weight: number; // kg

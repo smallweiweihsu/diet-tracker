@@ -1,5 +1,5 @@
-import { useState, useMemo, useRef } from "react";
-import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check, Sparkles, Loader2 } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Plus, Trash2, Dumbbell, Flame, Clock, X, ChevronDown, ChevronLeft, ChevronRight, Check, Sparkles, Loader2, Timer } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import ExerciseImport from "@/components/ExerciseImport";
 import ExerciseStats from "@/components/ExerciseStats";
@@ -7,7 +7,7 @@ import {
   cn, formatNum, dayStartMs, addDays, dateInputValue, dayStartFromInput,
   EXERCISE_TYPES, EXERCISE_CALORIE_PER_MIN,
   EXERCISE_NUMERIC_LABELS, exerciseConfig,
-  SWIM_STROKES, MUSCLE_GROUPS,
+  SWIM_STROKES, MUSCLE_GROUPS, COMMON_LIFTS,
   parseExerciseDetails, estimate1RM,
   type ExerciseNumericField, type Lift,
 } from "@/lib/utils";
@@ -85,6 +85,11 @@ function ExerciseSheet({
     }))
   );
   const [note, setNote] = useState(existing?.note ?? "");
+  // Rest timer between sets (weight training).
+  const [restSec, setRestSec] = useState(90);
+  const [restLeft, setRestLeft] = useState<number | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
   // Date the exercise is logged to. Edit mode keeps the record's own day;
   // add mode defaults to the page's selected day.
   const [dateStr, setDateStr] = useState(() =>
@@ -130,6 +135,16 @@ function ExerciseSheet({
     reader.readAsDataURL(file);
   };
 
+  const utils = trpc.useUtils();
+  const templatesQuery = trpc.templates.list.useQuery(undefined, { enabled: Boolean(config.lifts) });
+  const createTemplate = trpc.templates.create.useMutation({
+    onSuccess: () => { utils.templates.list.invalidate(); toast.success("已儲存課表"); },
+    onError: (e) => toast.error(e.message),
+  });
+  const removeTemplate = trpc.templates.remove.useMutation({
+    onSuccess: () => utils.templates.list.invalidate(),
+  });
+
   const addExercise = trpc.exercise.add.useMutation({
     onSuccess: () => { toast.success("運動已記錄！"); onSaved(); },
     onError: (e) => toast.error(e.message),
@@ -146,20 +161,37 @@ function ExerciseSheet({
   const toggleMuscle = (m: string) =>
     setMuscles((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
 
+  // Rest-timer countdown: ticks each second, alerts at zero.
+  useEffect(() => {
+    if (restLeft === null) return;
+    if (restLeft <= 0) {
+      setRestLeft(null);
+      toast.success("休息結束，開始下一組！");
+      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate([200, 100, 200]);
+      return;
+    }
+    const t = setTimeout(() => setRestLeft((s) => (s === null ? null : s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [restLeft]);
+  const restLabel = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
   // ── Weight-training movement editing ──
-  const addLift = () =>
-    setLifts((prev) => [...prev, { name: "", sets: [{ weight: "", reps: "" }] }]);
+  const addLift = (name = "") =>
+    setLifts((prev) => [...prev, { name, sets: [{ weight: "", reps: "" }] }]);
   const removeLift = (li: number) =>
     setLifts((prev) => prev.filter((_, i) => i !== li));
   const setLiftName = (li: number, name: string) =>
     setLifts((prev) => prev.map((l, i) => (i === li ? { ...l, name } : l)));
-  // Adding a set copies the previous one — repeating 60×10 is a single tap.
-  const addSet = (li: number) =>
+  // Adding a set copies the previous one — repeating 60×10 is a single tap —
+  // and kicks off the rest countdown for the set just finished.
+  const addSet = (li: number) => {
     setLifts((prev) =>
       prev.map((l, i) =>
         i === li ? { ...l, sets: [...l.sets, { ...(l.sets[l.sets.length - 1] ?? { weight: "", reps: "" }) }] } : l
       )
     );
+    setRestLeft(restSec);
+  };
   const removeSet = (li: number, si: number) =>
     setLifts((prev) =>
       prev.map((l, i) => (i === li ? { ...l, sets: l.sets.filter((_, j) => j !== si) } : l))
@@ -180,6 +212,31 @@ function ExerciseSheet({
     }))
     .filter((l) => l.name.length > 0 && l.sets.length > 0);
   const hasLifts = cleanLifts.length > 0;
+
+  // Load a saved 課表 into the movement editor.
+  const loadTemplate = (raw: string) => {
+    try {
+      const parsed = JSON.parse(raw) as Lift[];
+      setLifts(
+        parsed.map((l) => ({
+          name: l.name,
+          sets: l.sets.length
+            ? l.sets.map((s) => ({ weight: s.weight ? String(s.weight) : "", reps: s.reps ? String(s.reps) : "" }))
+            : [{ weight: "", reps: "" }],
+        }))
+      );
+      setShowTemplates(false);
+      toast.success("已帶入課表");
+    } catch {
+      toast.error("課表讀取失敗");
+    }
+  };
+  const saveTemplate = () => {
+    if (!hasLifts) { toast.error("先新增動作再儲存課表"); return; }
+    const name = window.prompt("課表名稱？");
+    if (!name?.trim()) return;
+    createTemplate.mutate({ name: name.trim(), lifts: cleanLifts });
+  };
   // Gym sessions logged purely as movements don't need a duration.
   const canSave = durationNum > 0 || (config.lifts && hasLifts);
 
@@ -391,7 +448,34 @@ function ExerciseSheet({
             {/* Weight-training movements (sets × reps × weight) */}
             {config.lifts && (
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">訓練動作</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">訓練動作</label>
+                  {/* Rest timer */}
+                  {restLeft !== null ? (
+                    <button
+                      onClick={() => setRestLeft(null)}
+                      className="flex items-center gap-1.5 px-3 h-8 rounded-full bg-primary text-primary-foreground text-xs font-bold num-display active:scale-95 transition-all"
+                    >
+                      <Timer size={13} /> {restLabel(restLeft)} · 略過
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Timer size={13} className="text-muted-foreground" />
+                      {[60, 90, 120].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setRestSec(s)}
+                          className={cn(
+                            "px-2 h-7 rounded-full text-[11px] font-semibold num-display transition-all",
+                            restSec === s ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {s}s
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="flex flex-col gap-2.5">
                   {lifts.map((lift, li) => (
                     <div key={li} className="rounded-2xl border border-border bg-muted/30 p-3">
@@ -451,12 +535,82 @@ function ExerciseSheet({
                       </div>
                     </div>
                   ))}
-                  <button
-                    onClick={addLift}
-                    className="w-full h-11 rounded-2xl border border-dashed border-border text-muted-foreground text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all"
-                  >
-                    <Plus size={15} /> 新增動作
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => addLift()}
+                      className="flex-1 h-11 rounded-2xl border border-dashed border-border text-muted-foreground text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all"
+                    >
+                      <Plus size={15} /> 新增動作
+                    </button>
+                    <button
+                      onClick={() => { setShowLibrary((v) => !v); setShowTemplates(false); }}
+                      className={cn(
+                        "px-3.5 h-11 rounded-2xl border text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all",
+                        showLibrary ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                      )}
+                    >
+                      <Dumbbell size={15} /> 常用
+                    </button>
+                    <button
+                      onClick={() => { setShowTemplates((v) => !v); setShowLibrary(false); }}
+                      className={cn(
+                        "px-3.5 h-11 rounded-2xl border text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all",
+                        showTemplates ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"
+                      )}
+                    >
+                      <Clock size={15} /> 課表
+                    </button>
+                  </div>
+                  {showTemplates && (
+                    <div className="rounded-2xl border border-border bg-muted/20 p-3 flex flex-col gap-2">
+                      {(templatesQuery.data ?? []).length === 0 ? (
+                        <p className="text-xs text-muted-foreground text-center py-1">尚無課表，先新增動作後可存成課表</p>
+                      ) : (
+                        (templatesQuery.data ?? []).map((t) => (
+                          <div key={t.id} className="flex items-center gap-2">
+                            <button
+                              onClick={() => loadTemplate(t.data)}
+                              className="flex-1 h-10 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground text-left active:scale-[0.99] transition-all"
+                            >
+                              {t.name}
+                            </button>
+                            <button
+                              onClick={() => removeTemplate.mutate({ id: t.id })}
+                              className="w-9 h-9 rounded-xl bg-destructive/10 flex items-center justify-center shrink-0"
+                            >
+                              <Trash2 size={14} className="text-destructive" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                      <button
+                        onClick={saveTemplate}
+                        className="w-full h-10 rounded-xl border border-dashed border-primary/40 text-primary text-sm font-medium flex items-center justify-center gap-1.5 active:scale-[0.99] transition-all"
+                      >
+                        <Plus size={14} /> 儲存目前動作為課表
+                      </button>
+                    </div>
+                  )}
+                  {showLibrary && (
+                    <div className="rounded-2xl border border-border bg-muted/20 p-3 flex flex-col gap-2">
+                      {COMMON_LIFTS.map(({ group, names }) => (
+                        <div key={group}>
+                          <p className="text-[10px] text-muted-foreground mb-1">{group}</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {names.map((name) => (
+                              <button
+                                key={name}
+                                onClick={() => { addLift(name); setShowLibrary(false); }}
+                                className="px-2.5 h-7 rounded-full bg-card border border-border text-xs text-foreground active:scale-95 transition-all"
+                              >
+                                {name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

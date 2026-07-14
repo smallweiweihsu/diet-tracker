@@ -106,3 +106,15 @@ export const userGoals = mysqlTable("user_goals", {
 
 export type UserGoals = typeof userGoals.$inferSelect;
 export type InsertUserGoals = typeof userGoals.$inferInsert;
+
+// ── Workout Templates (weight-training 課表) ───────────────────────────────────
+export const workoutTemplates = mysqlTable("workout_templates", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  data: text("data").notNull(), // JSON: Lift[] (movements with sets)
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WorkoutTemplate = typeof workoutTemplates.$inferSelect;
+export type InsertWorkoutTemplate = typeof workoutTemplates.$inferInsert;

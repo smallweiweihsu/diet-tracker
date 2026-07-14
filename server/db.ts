@@ -12,6 +12,7 @@ import {
   userGoals,
   users,
   weightLogs,
+  workoutTemplates,
 } from "../drizzle/schema";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -285,6 +286,31 @@ export async function deleteExerciseLog(id: number, userId: number) {
   await db
     .delete(exerciseLogs)
     .where(and(eq(exerciseLogs.id, id), eq(exerciseLogs.userId, userId)));
+}
+
+// ── Workout Templates ──────────────────────────────────────────────────────────
+export async function getWorkoutTemplates(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(workoutTemplates)
+    .where(eq(workoutTemplates.userId, userId))
+    .orderBy(desc(workoutTemplates.createdAt));
+}
+
+export async function createWorkoutTemplate(userId: number, name: string, data: string) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db.insert(workoutTemplates).values({ userId, name, data });
+}
+
+export async function deleteWorkoutTemplate(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(workoutTemplates)
+    .where(and(eq(workoutTemplates.id, id), eq(workoutTemplates.userId, userId)));
 }
 
 // ── User Goals ───────────────────────────────────────────────────────────────

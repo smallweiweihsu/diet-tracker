@@ -36,6 +36,13 @@
       "when": 1783699366337,
       "tag": "0004_gigantic_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1784042444676,
+      "tag": "0005_last_archangel",
+      "breakpoints": true
     }
   ]
 }
