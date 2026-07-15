@@ -633,7 +633,7 @@ export default function Profile() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `diet-tracker-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `morsel-${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success("CSV 已匯出！");
@@ -738,7 +738,7 @@ export default function Profile() {
           />
         </div>
 
-        <p className="text-center text-xs text-muted-foreground py-2">Diet Tracker v1.0</p>
+        <p className="text-center text-xs text-muted-foreground py-2">Morsel v1.0</p>
       </div>
 
       {showGoals && <GoalsSheet onClose={() => setShowGoals(false)} />}

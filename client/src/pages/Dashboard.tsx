@@ -152,7 +152,7 @@ export default function Dashboard() {
         <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
           <Flame size={36} className="text-primary" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground text-center">Diet Tracker</h1>
+        <h1 className="text-2xl font-bold text-foreground text-center">Morsel</h1>
         <p className="text-muted-foreground text-center text-sm">記錄飲食、追蹤運動、達成健康目標</p>
         <form
           className="w-full max-w-xs flex flex-col gap-3 mt-2"

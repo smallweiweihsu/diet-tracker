@@ -1,35 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#4fae6d"/>
-      <stop offset="100%" stop-color="#2e8a50"/>
-    </linearGradient>
-    <linearGradient id="leafg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#eafff0"/>
-      <stop offset="100%" stop-color="#cdf3da"/>
-    </linearGradient>
-  </defs>
+  <!-- Full-bleed linen background (masked to rounded/circle by the OS) -->
+  <rect x="0" y="0" width="512" height="512" fill="#f6efe4"/>
 
-  <!-- rounded-square background (iOS masks its own corners; keep for Android/manifest) -->
-  <rect x="0" y="0" width="512" height="512" rx="116" fill="url(#bg)"/>
+  <!-- Bread / morsel body: a rounded loaf slice, terracotta -->
+  <path d="M 224 126 H 288 A 48 48 0 0 1 336 174 V 358 A 30 30 0 0 1 306 388 H 206 A 30 30 0 0 1 176 358 V 174 A 48 48 0 0 1 224 126 Z"
+        fill="#c06a3c"/>
 
-  <!-- subtle inner glow circle, echoing the calorie ring on the dashboard -->
-  <circle cx="256" cy="256" r="168" fill="none" stroke="#ffffff" stroke-opacity="0.22" stroke-width="26"/>
-  <!-- ring progress arc -->
-  <path d="M 256 88 A 168 168 0 0 1 414.5 200" fill="none" stroke="#ffffff"
-        stroke-opacity="0.95" stroke-width="26" stroke-linecap="round"/>
+  <!-- Bite carved from the top-right (linen-coloured cut-out) -->
+  <circle cx="336" cy="150" r="46" fill="#f6efe4"/>
 
-  <!-- bowl -->
-  <path d="M 148 268 h 216 a 8 8 0 0 1 8 9 c -7 52 -50 91 -112 91 s -105 -39 -112 -91 a 8 8 0 0 1 8 -9 z"
-        fill="#ffffff"/>
-  <!-- bowl base -->
-  <rect x="222" y="366" width="68" height="14" rx="7" fill="#ffffff" opacity="0.9"/>
-
-  <!-- leaf sprouting from the bowl -->
-  <g transform="translate(256 262)">
-    <path d="M 2 -6 C 2 -64 34 -96 86 -104 C 84 -46 54 -12 2 -6 Z" fill="url(#leafg)"/>
-    <path d="M 2 -6 C 20 -52 44 -76 74 -92" fill="none" stroke="#3f9e60" stroke-width="7" stroke-linecap="round"/>
-    <!-- stem -->
-    <path d="M 0 6 C 0 -10 0 -20 2 -30" fill="none" stroke="#eafff0" stroke-width="10" stroke-linecap="round"/>
-  </g>
+  <!-- Crumbs flying off the bite -->
+  <circle cx="370" cy="150" r="11" fill="#c06a3c"/>
+  <circle cx="394" cy="126" r="8"  fill="#c06a3c"/>
+  <circle cx="380" cy="100" r="6"  fill="#c06a3c"/>
 </svg>
