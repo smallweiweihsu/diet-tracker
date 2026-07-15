@@ -59,8 +59,8 @@ pnpm dev               # http://localhost:3000
 ### Docker
 
 ```bash
-docker build -t diet-tracker .
-docker run -p 3000:3000 --env-file .env diet-tracker
+docker build -t morsel .
+docker run -p 3000:3000 --env-file .env morsel
 ```
 
 ## 指令

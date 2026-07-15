@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Camera, ChevronRight, Scale, Flame, Droplets, Beef, Wheat } from "lucide-react";
+import { Camera, ChevronRight, Scale, Droplets, Beef, Wheat } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { cn, formatNum, MEAL_LABELS, MEAL_ICONS, dayStartMs } from "@/lib/utils";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -141,17 +141,13 @@ export default function Dashboard() {
     if (loading) {
       return (
         <div className="flex items-center justify-center min-h-dvh">
-          <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse">
-            <Flame size={36} className="text-primary" />
-          </div>
+          <img src="/icon.svg" alt="Morsel" className="w-20 h-20 rounded-3xl animate-pulse" />
         </div>
       );
     }
     return (
       <div className="flex flex-col items-center justify-center min-h-dvh gap-4 px-6">
-        <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center mb-2">
-          <Flame size={36} className="text-primary" />
-        </div>
+        <img src="/icon.svg" alt="Morsel" className="w-20 h-20 rounded-3xl mb-2 shadow-sm" />
         <h1 className="text-2xl font-bold text-foreground text-center">Morsel</h1>
         <p className="text-muted-foreground text-center text-sm">記錄飲食、追蹤運動、達成健康目標</p>
         <form
