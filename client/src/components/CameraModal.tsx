@@ -96,13 +96,9 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
 
-  const analyze = trpc.food.analyzeImage.useMutation({
-    onSuccess: (data) => { setFoods(toDrafts(data.foods)); setStep("confirm"); },
-    onError: (e) => {
-      toast.error("分析失敗：" + e.message);
-      setStep("capture");
-    },
-  });
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+  // Vanilla client — reliable for a sequential analyze loop over many photos.
+  const trpcClient = trpc.useUtils().client;
 
   const analyzeText = trpc.food.analyzeText.useMutation({
     onSuccess: (data) => { setFoods(toDrafts(data.foods)); setStep("confirm"); },
@@ -114,17 +110,46 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
 
   const addFood = trpc.food.add.useMutation();
 
-  const handleFile = (file: File) => {
-    const mime = file.type || "image/jpeg";
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      setPreview(dataUrl);
-      const base64 = dataUrl.split(",")[1] ?? "";
-      setStep("analyzing");
-      analyze.mutate({ imageBase64: base64, mimeType: mime, note: description.trim() || undefined });
-    };
-    reader.readAsDataURL(file);
+  const readAsBase64 = (file: File) =>
+    new Promise<{ base64: string; mime: string; dataUrl: string }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        resolve({ base64: dataUrl.split(",")[1] ?? "", mime: file.type || "image/jpeg", dataUrl });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // Analyze one or many photos and merge every recognised food into one list.
+  const handleFiles = async (fileList: FileList) => {
+    const list = Array.from(fileList);
+    if (list.length === 0) return;
+    setStep("analyzing");
+    setProgress({ done: 0, total: list.length });
+    const note = description.trim() || undefined;
+    const all: AnalyzedFood[] = [];
+    let failed = 0;
+    let previewSet = false;
+    for (const file of list) {
+      try {
+        const { base64, mime, dataUrl } = await readAsBase64(file);
+        if (!previewSet) { setPreview(dataUrl); previewSet = true; }
+        const data = await trpcClient.food.analyzeImage.mutate({ imageBase64: base64, mimeType: mime, note });
+        all.push(...data.foods);
+      } catch {
+        failed++;
+      }
+      setProgress((p) => ({ ...p, done: p.done + 1 }));
+    }
+    if (all.length === 0) {
+      toast.error(failed > 0 ? "分析失敗，請重試" : "沒有辨識到食物");
+      setStep("capture");
+      return;
+    }
+    setFoods(toDrafts(all));
+    if (failed > 0) toast.info(`${failed} 張分析失敗，已略過`);
+    setStep("confirm");
   };
 
   const handleAskText = () => {
@@ -274,12 +299,12 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
               <input
                 ref={cameraRef} type="file" accept="image/*" capture="environment"
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+                onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ""; }}
               />
               <input
-                ref={galleryRef} type="file" accept="image/*"
+                ref={galleryRef} type="file" accept="image/*" multiple
                 className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+                onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); e.target.value = ""; }}
               />
               <div className="grid grid-cols-2 gap-2 w-full">
                 <button
@@ -296,7 +321,7 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
                              active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
                 >
                   <ImageIcon size={17} />
-                  相簿
+                  相簿（可多張）
                 </button>
               </div>
               {description.trim() && (
@@ -323,9 +348,11 @@ export default function CameraModal({ meal, dateMs, onClose, onSaved }: Props) {
               )}
               <div className="flex items-center gap-3 text-primary">
                 <Loader2 size={24} className="animate-spin" />
-                <span className="font-medium">AI 正在分析食物...</span>
+                <span className="font-medium">
+                  AI 正在分析食物{progress.total > 1 ? ` ${progress.done}/${progress.total}` : ""}...
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground">通常需要 5–15 秒</p>
+              <p className="text-xs text-muted-foreground">通常每張需要 5–15 秒</p>
             </div>
           )}
 
